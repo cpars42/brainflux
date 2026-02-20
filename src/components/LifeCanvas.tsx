@@ -20,6 +20,7 @@ import {
   type EdgeTypes,
 } from "@xyflow/react";
 import { FlowingEdge } from "./edges/FlowingEdge";
+import { InboxTray, type InboxItem } from "./InboxTray";
 import "@xyflow/react/dist/style.css";
 import { nanoid } from "nanoid";
 import { NoteNode } from "./nodes/NoteNode";
@@ -190,6 +191,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   const [loaded, setLoaded] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [inboxPicker, setInboxPicker] = useState<{ item: InboxItem; x: number; y: number; flowPos: { x: number; y: number } } | null>(null);
   const savedViewport = useRef<{ x: number; y: number; zoom: number } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { fitView, screenToFlowPosition, getViewport, setViewport } = useReactFlow();
@@ -345,9 +347,43 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     [setNodes, edges, scheduleSave, screenToFlowPosition]
   );
 
-  // Drag URL from browser → LinkNode
+  // Consume inbox item: create a node then delete the inbox item
+  const consumeInboxItem = useCallback(
+    async (type: "note" | "sticky" | "link", item: InboxItem, flowPos: { x: number; y: number }) => {
+      setInboxPicker(null);
+      const id = nanoid();
+      let newNode: Node;
+
+      if (type === "link") {
+        const isUrl = item.content.startsWith("http");
+        newNode = {
+          id, type: "link", position: flowPos,
+          data: { url: isUrl ? item.content : `https://www.google.com/search?q=${encodeURIComponent(item.content)}`, title: item.content },
+        };
+      } else {
+        newNode = {
+          id, type, position: flowPos,
+          data: { label: type === "note" ? "" : item.content, content: item.content },
+        };
+      }
+
+      setNodes((nds) => {
+        const next = [...nds, newNode];
+        scheduleSave(next, edges);
+        return next;
+      });
+
+      try {
+        await fetch(`/api/inbox/${item.id}`, { method: "DELETE" });
+      } catch { /* best effort */ }
+    },
+    [setNodes, edges, scheduleSave]
+  );
+
+  // Drag URL from browser → LinkNode | Drag inbox item → type picker
   const onDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes("text/uri-list") || e.dataTransfer.types.includes("text/plain")) {
+    const types = e.dataTransfer.types;
+    if (types.includes("application/brainflux-inbox") || types.includes("text/uri-list") || types.includes("text/plain")) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
     }
@@ -356,6 +392,18 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   const onDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
+
+      // Inbox item drop → show type picker
+      const inboxRaw = e.dataTransfer.getData("application/brainflux-inbox");
+      if (inboxRaw) {
+        try {
+          const item = JSON.parse(inboxRaw) as InboxItem;
+          const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+          setInboxPicker({ item, x: e.clientX, y: e.clientY, flowPos });
+        } catch { /* malformed */ }
+        return;
+      }
+
       const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
       if (!url || !url.startsWith("http")) return;
 
@@ -507,6 +555,59 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
       </ReactFlow>
 
       <Toolbar onAdd={addNode} onVoiceNote={addVoiceNoteNode} />
+
+      <InboxTray onDragStart={() => {}} />
+
+      {/* Inbox type picker */}
+      {inboxPicker && (
+        <div
+          onClick={() => setInboxPicker(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 100 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              left: inboxPicker.x,
+              top: inboxPicker.y,
+              background: "#1a1a1a",
+              border: "1px solid #eab308",
+              borderRadius: 10,
+              padding: "10px 12px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              zIndex: 101,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+              minWidth: 160,
+              transform: "translate(-50%, 8px)",
+            }}
+          >
+            <p style={{ color: "#888", fontSize: 11, margin: "0 0 4px", textAlign: "center" }}>
+              Add as…
+            </p>
+            {(["note", "sticky", "link"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => consumeInboxItem(type, inboxPicker.item, inboxPicker.flowPos)}
+                style={{
+                  background: "#2a2a2a",
+                  border: "1px solid #3f3f46",
+                  borderRadius: 7,
+                  color: "#e5e7eb",
+                  fontSize: 13,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  textTransform: "capitalize",
+                }}
+              >
+                {type === "note" ? "📝 Note" : type === "sticky" ? "🟡 Sticky" : "🔗 Link"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* User bar */}
       <div style={{

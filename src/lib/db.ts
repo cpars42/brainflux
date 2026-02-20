@@ -80,6 +80,19 @@ export async function initDb() {
     },
   ]);
   // Migrations — add new columns to existing DBs safely
+  // inbox_items — global per user, consumed on drag-to-canvas
+  await db.execute({
+    sql: `CREATE TABLE IF NOT EXISTS inbox_items (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'manual',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    args: [],
+  });
+  // Migrations — add new columns to existing DBs safely
   try { await db.execute({ sql: "ALTER TABLE canvas_edges ADD COLUMN source_handle TEXT", args: [] }); } catch { /* already exists */ }
   try { await db.execute({ sql: "ALTER TABLE canvas_edges ADD COLUMN target_handle TEXT", args: [] }); } catch { /* already exists */ }
   try { await db.execute({ sql: "ALTER TABLE canvases ADD COLUMN viewport TEXT", args: [] }); } catch { /* already exists */ }
@@ -253,4 +266,45 @@ export async function saveCanvasData(
       args: [e.id, canvasId, e.source_id, e.target_id, e.source_handle ?? null, e.target_handle ?? null],
     });
   }
+}
+
+// ─── INBOX ────────────────────────────────────────────────────────────────────
+
+export type InboxItem = {
+  id: string;
+  user_id: string;
+  content: string;
+  source: string;
+  created_at: string;
+};
+
+export async function getInboxItems(userId: string): Promise<InboxItem[]> {
+  const db = getDb();
+  await initDb();
+  const result = await db.execute({
+    sql: "SELECT * FROM inbox_items WHERE user_id = ? ORDER BY created_at ASC",
+    args: [userId],
+  });
+  return result.rows as unknown as InboxItem[];
+}
+
+export async function addInboxItem(data: { id: string; user_id: string; content: string; source?: string }): Promise<InboxItem> {
+  const db = getDb();
+  await initDb();
+  await db.execute({
+    sql: "INSERT INTO inbox_items (id, user_id, content, source) VALUES (?, ?, ?, ?)",
+    args: [data.id, data.user_id, data.content, data.source ?? "manual"],
+  });
+  const row = await db.execute({ sql: "SELECT * FROM inbox_items WHERE id = ?", args: [data.id] });
+  return row.rows[0] as unknown as InboxItem;
+}
+
+export async function deleteInboxItem(id: string, userId: string): Promise<boolean> {
+  const db = getDb();
+  await initDb();
+  const result = await db.execute({
+    sql: "DELETE FROM inbox_items WHERE id = ? AND user_id = ?",
+    args: [id, userId],
+  });
+  return (result.rowsAffected ?? 0) > 0;
 }
