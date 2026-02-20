@@ -20,7 +20,7 @@ import {
   type EdgeTypes,
 } from "@xyflow/react";
 import { FlowingEdge } from "./edges/FlowingEdge";
-import { InboxTray, type InboxItem } from "./InboxTray";
+import { InboxTray, removeInboxItemFromTray, type InboxItem } from "./InboxTray";
 import "@xyflow/react/dist/style.css";
 import { nanoid } from "nanoid";
 import { NoteNode } from "./nodes/NoteNode";
@@ -366,6 +366,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   const consumeInboxItem = useCallback(
     async (type: "note" | "sticky" | "link", item: InboxItem, flowPos: { x: number; y: number }) => {
       setInboxPicker(null);
+      removeInboxItemFromTray(item.id); // optimistic — remove instantly from tray
       const id = nanoid();
       let newNode: Node;
 

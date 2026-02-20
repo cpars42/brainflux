@@ -28,9 +28,16 @@ export function InboxTray({ onDragStart }: InboxTrayProps) {
   };
 
   useEffect(() => {
+    // Register external controls
+    _removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
+    _refreshInbox = fetchItems;
     fetchItems();
     intervalRef.current = setInterval(fetchItems, 15000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      _removeItem = null;
+      _refreshInbox = null;
+    };
   }, []);
 
   // Auto-open tray when new items arrive
@@ -148,11 +155,13 @@ export function InboxTray({ onDragStart }: InboxTrayProps) {
   );
 }
 
-// Hook to refresh inbox from outside (e.g. after consuming an item)
+// External controls — call these from anywhere to mutate InboxTray state
+let _removeItem: ((id: string) => void) | null = null;
 let _refreshInbox: (() => void) | null = null;
-export function useInboxRefresh() {
-  return _refreshInbox;
+
+export function removeInboxItemFromTray(id: string) {
+  if (_removeItem) _removeItem(id);
 }
-export function registerInboxRefresh(fn: () => void) {
-  _refreshInbox = fn;
+export function refreshInboxTray() {
+  if (_refreshInbox) _refreshInbox();
 }
