@@ -433,6 +433,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     <div
       style={{ width: "100vw", height: "100vh" }}
       onClick={() => setContextMenu(null)}
+      onWheel={() => { if (editingNodeId) exitEditMode(); }}
       onDragOver={onDragOver}
       onDrop={onDrop}
       onContextMenu={(e) => {
