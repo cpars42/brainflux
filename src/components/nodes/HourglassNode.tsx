@@ -41,7 +41,8 @@ for (let r = 0; r < ROWS; r++) {
 }
 
 const TOP_PIXELS = ALL_PIXELS.filter(([r]) => r < ROWS / 2).reverse();
-const BOTTOM_PIXELS = ALL_PIXELS.filter(([r]) => r >= ROWS / 2);
+// Reversed so sand builds from the BOTTOM of the lower chamber upward (realistic pile)
+const BOTTOM_PIXELS = ALL_PIXELS.filter(([r]) => r >= ROWS / 2).reverse();
 
 // Neck position for falling grain animation
 const NECK_Y = Math.floor(ROWS / 2 - 1) * (PIXEL + GAP);
@@ -49,7 +50,8 @@ const GRAIN_X = Math.floor(COLS / 2) * (PIXEL + GAP) - PIXEL / 2;
 
 function FallingGrains({ active }: { active: boolean }) {
   if (!active) return null;
-  const dropDist = 7 * (PIXEL + GAP);
+  // Fall from neck all the way to the bottom of the hourglass
+  const dropDist = (ROWS - 1 - Math.floor(ROWS / 2 - 1)) * (PIXEL + GAP);
   return (
     <>
       <style>{`
