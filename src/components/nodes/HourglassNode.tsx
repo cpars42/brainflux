@@ -40,9 +40,23 @@ for (let r = 0; r < ROWS; r++) {
   }
 }
 
-const TOP_PIXELS = ALL_PIXELS.filter(([r]) => r < ROWS / 2).reverse();
-// Reversed so sand builds from the BOTTOM of the lower chamber upward (realistic pile)
-const BOTTOM_PIXELS = ALL_PIXELS.filter(([r]) => r >= ROWS / 2).reverse();
+// Top chamber: flat horizontal surface drops from top (row 0) toward neck (row 10)
+// Sort row-descending so row 0 pixels are at the END — they get removed first as topFilled shrinks
+const TOP_PIXELS = ALL_PIXELS
+  .filter(([r]) => r < ROWS / 2)
+  .sort(([r1, c1], [r2, c2]) => r1 !== r2 ? r2 - r1 : c1 - c2);
+
+// Bottom chamber: cone/mound — center column rises first, spreads outward like real sand
+// Sort by cone priority: bottom-center fills first, expands up + outward
+const BOTTOM_CENTER = (COLS - 1) / 2; // 7.5
+const CONE_SLOPE = 1.3; // steepness — higher = narrower cone
+const BOTTOM_PIXELS = ALL_PIXELS
+  .filter(([r]) => r >= ROWS / 2)
+  .sort(([r1, c1], [r2, c2]) => {
+    const k1 = (ROWS - 1 - r1) + Math.abs(c1 - BOTTOM_CENTER) * CONE_SLOPE;
+    const k2 = (ROWS - 1 - r2) + Math.abs(c2 - BOTTOM_CENTER) * CONE_SLOPE;
+    return k1 - k2; // lowest key = bottom-center = fills first
+  });
 
 // Neck position for falling grain animation
 const NECK_Y = Math.floor(ROWS / 2 - 1) * (PIXEL + GAP);
