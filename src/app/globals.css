@@ -57,15 +57,46 @@ html, body {
   border: 2px solid #09090b;
   width: 10px;
   height: 10px;
-  transition: background 0.15s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .react-flow__handle:hover {
   background: #6366f1;
+  box-shadow: 0 0 0 3px #6366f133, 0 0 10px #6366f166;
 }
 
+/* Handle being dragged FROM — glowing indigo ring */
 .react-flow__handle.react-flow__handle-connecting {
-  background: #6366f1;
+  background: #818cf8;
+  border-color: #4f46e5;
+  transform: scale(1.4);
+  box-shadow:
+    0 0 0 3px #6366f144,
+    0 0 0 6px #6366f122,
+    0 0 16px #6366f199;
+}
+
+/* Valid target handle — glowing green pulse */
+.react-flow__handle.react-flow__handle-valid {
+  background: #34d399;
+  border-color: #059669;
+  transform: scale(1.4);
+  animation: handle-valid-pulse 1s ease-in-out infinite;
+}
+
+@keyframes handle-valid-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px #10b98133,
+      0 0 0 6px #10b98111,
+      0 0 12px #10b98177;
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px #10b98144,
+      0 0 0 10px #10b98122,
+      0 0 24px #10b981aa;
+  }
 }
 
 /* Pixel hourglass */
