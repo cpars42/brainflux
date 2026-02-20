@@ -39,9 +39,9 @@ export function NoteNode({ id, data, selected }: NodeProps) {
         className="h-full flex flex-col rounded-xl overflow-hidden"
         style={{
           background: "#18181b",
-          border: `1.5px solid ${isEditing ? "#22d3ee" : selected ? "#6366f1" : "#27272a"}`,
+          border: `1.5px solid ${isEditing ? "#eab308" : selected ? "#6366f1" : "#27272a"}`,
           boxShadow: isEditing
-            ? "0 0 0 2px #22d3ee33"
+            ? "0 0 0 2px #eab30833"
             : selected
             ? "0 0 0 2px #6366f133"
             : "0 4px 24px #00000066",

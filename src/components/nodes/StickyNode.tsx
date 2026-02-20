@@ -39,7 +39,7 @@ export function StickyNode({ id, data, selected }: NodeProps) {
         style={{
           background: color.bg,
           border: isEditing
-            ? "2px solid #22d3ee"
+            ? "2px solid #eab308"
             : selected
             ? "2px solid #6366f1"
             : "2px solid transparent",
