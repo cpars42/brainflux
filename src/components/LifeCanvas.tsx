@@ -356,9 +356,13 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
 
       if (type === "link") {
         const isUrl = item.content.startsWith("http");
+        const linkUrl = isUrl ? item.content : `https://www.google.com/search?q=${encodeURIComponent(item.content)}`;
+        const isYouTube = /youtube\.com|youtu\.be/.test(linkUrl);
         newNode = {
           id, type: "link", position: flowPos,
-          data: { url: isUrl ? item.content : `https://www.google.com/search?q=${encodeURIComponent(item.content)}`, title: item.content },
+          width:  isYouTube ? 480 : undefined,
+          height: isYouTube ? 270 : undefined,
+          data: { url: linkUrl, title: item.content },
         };
       } else {
         newNode = {
@@ -410,11 +414,14 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       const hostname = (() => { try { return new URL(url).hostname; } catch { return url; } })();
       const id = nanoid();
+      const isYouTube = /youtube\.com|youtu\.be/.test(url);
 
       const newNode: Node = {
         id,
         type: "link",
         position,
+        width:  isYouTube ? 480 : undefined,
+        height: isYouTube ? 270 : undefined,
         data: { url, title: hostname },
       };
 
