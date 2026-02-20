@@ -90,7 +90,7 @@ function toFlowNode(n: {
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
 
-type ContextMenuState = { x: number; y: number; nodeId: string };
+type ContextMenuState = { x: number; y: number; nodeId: string; url?: string };
 
 function ContextMenu({
   menu,
@@ -110,8 +110,8 @@ function ContextMenu({
   }, [onClose]);
 
   // Clamp to viewport
-  const menuW = 160;
-  const menuH = 80;
+  const menuW = 180;
+  const menuH = menu.url ? 112 : 56;
   const left = Math.min(menu.x, window.innerWidth - menuW - 8);
   const top = Math.min(menu.y, window.innerHeight - menuH - 8);
 
@@ -131,6 +131,15 @@ function ContextMenu({
         boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
       }}
     >
+      {menu.url && (
+        <MenuItem
+          icon="🌐"
+          label="Open in browser"
+          color="#a5b4fc"
+          hoverBg="#1e1b4b"
+          onClick={() => { window.open(menu.url, "_blank", "noopener,noreferrer"); onClose(); }}
+        />
+      )}
       <MenuItem
         icon="🗑"
         label="Delete"
@@ -539,7 +548,8 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   // Right-click → context menu
   const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, nodeId: node.id });
+    const url = node.type === "link" ? (node.data as { url?: string }).url : undefined;
+    setContextMenu({ x: e.clientX, y: e.clientY, nodeId: node.id, url });
   }, []);
 
   const deleteNode = useCallback(
