@@ -460,6 +460,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         defaultEdgeOptions={{ type: "default" }}
         colorMode="dark"
         panOnDrag={editingNodeId === null}
+        zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
