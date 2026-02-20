@@ -24,6 +24,7 @@ import { StickyNode } from "./nodes/StickyNode";
 import { ClockNode } from "./nodes/ClockNode";
 import { TimerNode } from "./nodes/TimerNode";
 import { HourglassNode } from "./nodes/HourglassNode";
+import { LinkNode } from "./nodes/LinkNode";
 import { Toolbar } from "./Toolbar";
 
 const NODE_TYPES: NodeTypes = {
@@ -32,6 +33,7 @@ const NODE_TYPES: NodeTypes = {
   clock: ClockNode,
   timer: TimerNode,
   hourglass: HourglassNode,
+  link: LinkNode,
 };
 
 const DEFAULT_NODE_DATA: Record<string, object> = {
@@ -40,6 +42,7 @@ const DEFAULT_NODE_DATA: Record<string, object> = {
   clock: {},
   timer: { label: "", durationMinutes: 25 },
   hourglass: { durationMinutes: 10 },
+  link: { url: "", title: "" },
 };
 
 const DEFAULT_NODE_SIZE: Record<string, { width?: number; height?: number }> = {
@@ -168,7 +171,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   const [loaded, setLoaded] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { fitView } = useReactFlow();
+  const { fitView, screenToFlowPosition } = useReactFlow();
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -266,6 +269,84 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     [setNodes, edges, scheduleSave]
   );
 
+  // Voice note — create NoteNode at viewport center with transcript
+  const addVoiceNoteNode = useCallback(
+    (transcript: string) => {
+      const id = nanoid();
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const position = screenToFlowPosition({ x: cx, y: cy });
+      const newNode: Node = {
+        id,
+        type: "note",
+        position,
+        data: { title: "", content: transcript },
+        style: { width: 280, height: 200 },
+      };
+      setNodes((nds) => {
+        const next = [...nds, newNode];
+        scheduleSave(next, edges);
+        return next;
+      });
+    },
+    [setNodes, edges, scheduleSave, screenToFlowPosition]
+  );
+
+  // Drag URL from browser → LinkNode
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes("text/uri-list") || e.dataTransfer.types.includes("text/plain")) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  }, []);
+
+  const onDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+      if (!url || !url.startsWith("http")) return;
+
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const hostname = (() => { try { return new URL(url).hostname; } catch { return url; } })();
+      const id = nanoid();
+
+      const newNode: Node = {
+        id,
+        type: "link",
+        position,
+        data: { url, title: hostname },
+      };
+
+      setNodes((nds) => {
+        const next = [...nds, newNode];
+        scheduleSave(next, edges);
+        return next;
+      });
+
+      // Fetch real title in background
+      try {
+        const res = await fetch("/api/fetch-title", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const { title } = await res.json();
+        if (title) {
+          setNodes((nds) => {
+            const next = nds.map((n) =>
+              n.id === id ? { ...n, data: { ...n.data, title } } : n
+            );
+            scheduleSave(next, edges);
+            return next;
+          });
+        }
+      } catch {
+        // keep hostname fallback
+      }
+    },
+    [setNodes, edges, scheduleSave, screenToFlowPosition]
+  );
+
   // Delete selected nodes on Backspace/Delete key
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -324,6 +405,8 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     <div
       style={{ width: "100vw", height: "100vh" }}
       onClick={() => setContextMenu(null)}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       onContextMenu={(e) => {
         // Only close if clicking the pane (not a node — node context menu stops propagation)
         if ((e.target as HTMLElement).classList.contains("react-flow__pane")) {
@@ -357,7 +440,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         />
       </ReactFlow>
 
-      <Toolbar onAdd={addNode} />
+      <Toolbar onAdd={addNode} onVoiceNote={addVoiceNoteNode} />
 
       {/* User bar */}
       <div style={{
