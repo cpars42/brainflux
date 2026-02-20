@@ -267,10 +267,15 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
 
   const handleNodesChange = useCallback(
     (changes: Parameters<typeof onNodesChange>[0]) => {
-      onNodesChange(changes);
+      // While a node is in edit mode, block React Flow from re-selecting it
+      // (clicking inside the node triggers a "select" change that brings back the blue ring)
+      const filtered = editingNodeId
+        ? changes.filter((c) => !(c.type === "select" && c.id === editingNodeId && c.selected))
+        : changes;
+      onNodesChange(filtered);
       setNodes((nds) => { scheduleSave(nds, edges); return nds; });
     },
-    [onNodesChange, setNodes, edges, scheduleSave]
+    [onNodesChange, setNodes, edges, scheduleSave, editingNodeId]
   );
 
   const handleEdgesChange = useCallback(
