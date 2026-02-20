@@ -71,12 +71,17 @@ export async function initDb() {
         canvas_id TEXT NOT NULL,
         source_id TEXT NOT NULL,
         target_id TEXT NOT NULL,
+        source_handle TEXT,
+        target_handle TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (canvas_id) REFERENCES canvases(id) ON DELETE CASCADE
       )`,
       args: [],
     },
   ]);
+  // Migrate existing DBs — add handle columns if missing (ALTER TABLE ignores IF NOT EXISTS, so catch)
+  try { await db.execute({ sql: "ALTER TABLE canvas_edges ADD COLUMN source_handle TEXT", args: [] }); } catch { /* already exists */ }
+  try { await db.execute({ sql: "ALTER TABLE canvas_edges ADD COLUMN target_handle TEXT", args: [] }); } catch { /* already exists */ }
 }
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
@@ -199,7 +204,9 @@ export type DbNode = {
 };
 
 export type DbEdge = {
-  id: string; canvas_id: string; source_id: string; target_id: string; created_at: string;
+  id: string; canvas_id: string; source_id: string; target_id: string;
+  source_handle: string | null; target_handle: string | null;
+  created_at: string;
 };
 
 export async function getCanvasData(canvasId: string) {
@@ -218,7 +225,7 @@ export async function getCanvasData(canvasId: string) {
 export async function saveCanvasData(
   canvasId: string,
   nodes: { id: string; type: string; position_x: number; position_y: number; width?: number | null; height?: number | null; data?: Record<string, unknown> }[],
-  edges: { id: string; source_id: string; target_id: string }[]
+  edges: { id: string; source_id: string; target_id: string; source_handle?: string | null; target_handle?: string | null }[]
 ) {
   const db = getDb();
   await initDb();
@@ -235,8 +242,8 @@ export async function saveCanvasData(
   }
   for (const e of edges) {
     await db.execute({
-      sql: "INSERT INTO canvas_edges (id, canvas_id, source_id, target_id) VALUES (?, ?, ?, ?)",
-      args: [e.id, canvasId, e.source_id, e.target_id],
+      sql: "INSERT INTO canvas_edges (id, canvas_id, source_id, target_id, source_handle, target_handle) VALUES (?, ?, ?, ?, ?, ?)",
+      args: [e.id, canvasId, e.source_id, e.target_id, e.source_handle ?? null, e.target_handle ?? null],
     });
   }
 }

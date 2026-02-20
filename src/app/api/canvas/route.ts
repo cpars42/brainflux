@@ -35,7 +35,14 @@ export async function GET(req: NextRequest) {
       width: n.width, height: n.height,
       data: JSON.parse(n.data),
     })),
-    edges: edges.map((e) => ({ id: e.id, source: e.source_id, target: e.target_id, type: "default" })),
+    edges: edges.map((e) => ({
+      id: e.id,
+      source: e.source_id,
+      target: e.target_id,
+      sourceHandle: e.source_handle ?? null,
+      targetHandle: e.target_handle ?? null,
+      type: "smoothstep",
+    })),
   });
 }
 
@@ -56,8 +63,12 @@ export async function POST(req: NextRequest) {
       height: n.height ?? null,
       data: n.data ?? {},
     })),
-    edges.map((e: { id: string; source: string; target: string }) => ({
-      id: e.id, source_id: e.source, target_id: e.target,
+    edges.map((e: { id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) => ({
+      id: e.id,
+      source_id: e.source,
+      target_id: e.target,
+      source_handle: e.sourceHandle ?? null,
+      target_handle: e.targetHandle ?? null,
     }))
   );
 

@@ -8,6 +8,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  ConnectionMode,
   addEdge,
   useNodesState,
   useEdgesState,
@@ -224,6 +225,8 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
               id: e.id,
               source: e.source,
               target: e.target,
+              sourceHandle: e.sourceHandle ?? null,
+              targetHandle: e.targetHandle ?? null,
             })),
           }),
         });
@@ -250,7 +253,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      const edge: Edge = { ...connection, id: nanoid(), type: "default" };
+      const edge: Edge = { ...connection, id: nanoid(), type: "smoothstep" };
       setEdges((eds) => {
         const next = addEdge(edge, eds);
         scheduleSave(nodes, next);
@@ -457,10 +460,11 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         fitView={nodes.length > 0}
         minZoom={0.1}
         maxZoom={2}
-        defaultEdgeOptions={{ type: "default" }}
+        defaultEdgeOptions={{ type: "smoothstep" }}
         colorMode="dark"
         panOnDrag={editingNodeId === null}
         zoomOnDoubleClick={false}
+        connectionMode={ConnectionMode.Loose}
         proOptions={{ hideAttribution: true }}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
