@@ -99,6 +99,15 @@ html, body {
   }
 }
 
+/* Flowing edge animation — dashes march from source to target */
+.flowing-edge-anim {
+  animation: flowDash 0.45s linear infinite;
+}
+
+@keyframes flowDash {
+  to { stroke-dashoffset: -14; }
+}
+
 /* Pixel hourglass */
 .pixel-grid {
   display: grid;

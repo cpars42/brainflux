@@ -17,7 +17,9 @@ import {
   type Node,
   type Edge,
   type NodeTypes,
+  type EdgeTypes,
 } from "@xyflow/react";
+import { FlowingEdge } from "./edges/FlowingEdge";
 import "@xyflow/react/dist/style.css";
 import { nanoid } from "nanoid";
 import { NoteNode } from "./nodes/NoteNode";
@@ -27,6 +29,10 @@ import { TimerNode } from "./nodes/TimerNode";
 import { HourglassNode } from "./nodes/HourglassNode";
 import { LinkNode } from "./nodes/LinkNode";
 import { Toolbar } from "./Toolbar";
+
+const EDGE_TYPES: EdgeTypes = {
+  default: FlowingEdge,
+};
 
 // ─── Contexts ─────────────────────────────────────────────────────────────────
 
@@ -469,6 +475,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         fitView={nodes.length > 0}
         minZoom={0.1}
         maxZoom={2}
