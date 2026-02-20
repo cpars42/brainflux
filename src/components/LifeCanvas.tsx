@@ -448,17 +448,20 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     [setNodes, edges, scheduleSave, screenToFlowPosition]
   );
 
-  // Delete selected nodes on Backspace/Delete key
+  // Delete selected nodes on Backspace/Delete key + arrow-key navigation between connected nodes
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         exitEditMode();
         return;
       }
+
+      // Skip if typing in a text field or in edit mode
+      const active = document.activeElement;
+      const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || (active as HTMLElement).isContentEditable);
+
       if (e.key === "Backspace" || e.key === "Delete") {
-        const active = document.activeElement;
-        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
-        // Don't delete nodes while one is being edited
+        if (isTyping) return;
         if (editingNodeId) return;
         setNodes((nds) => {
           const next = nds.filter((n) => !n.selected);
@@ -466,9 +469,46 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
           return next;
         });
         setEdges((eds) => eds.filter((e) => !e.selected));
+        return;
       }
+
+      // Arrow keys: navigate to connected node in that direction
+      const dirMap: Record<string, string> = {
+        ArrowLeft: "left", ArrowRight: "right",
+        ArrowUp: "top",   ArrowDown: "bottom",
+      };
+      const dir = dirMap[e.key];
+      if (!dir || isTyping || editingNodeId) return;
+
+      // Get the single selected node
+      setNodes((nds) => {
+        const selected = nds.filter((n) => n.selected);
+        if (selected.length !== 1) return nds;
+        const nodeId = selected[0].id;
+
+        // Find a connected node via the handle matching `dir`
+        let neighborId: string | null = null;
+        for (const edge of edges) {
+          if (edge.source === nodeId && edge.sourceHandle === dir) {
+            neighborId = edge.target;
+            break;
+          }
+          if (edge.target === nodeId && edge.targetHandle === dir) {
+            neighborId = edge.source;
+            break;
+          }
+        }
+        if (!neighborId) return nds;
+
+        // Prevent default scroll
+        e.preventDefault();
+
+        // Zoom to neighbour and select it
+        fitView({ nodes: [{ id: neighborId }], padding: 0.4, duration: 450, maxZoom: 1.5 });
+        return nds.map((n) => ({ ...n, selected: n.id === neighborId }));
+      });
     },
-    [setNodes, setEdges, edges, scheduleSave, editingNodeId, exitEditMode]
+    [setNodes, setEdges, edges, scheduleSave, editingNodeId, exitEditMode, fitView]
   );
 
   useEffect(() => {
