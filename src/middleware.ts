@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth";
 
-const PUBLIC = ["/login", "/register", "/api/auth/login", "/api/auth/register"];
+// Routes that handle their own auth (token or session) — skip middleware
+const PUBLIC = ["/login", "/register", "/api/auth/login", "/api/auth/register", "/api/inbox"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
