@@ -311,7 +311,8 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   // Edit mode — enter/exit
   const enterEditMode = useCallback((nodeId: string) => {
     setEditingNodeId(nodeId);
-    setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, draggable: false } : n)));
+    // Deselect the node so React Flow's blue selection ring doesn't overlay the yellow edit border
+    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, draggable: false, selected: false } : n));
   }, [setNodes]);
 
   const exitEditMode = useCallback(() => {
