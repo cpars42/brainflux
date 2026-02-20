@@ -63,15 +63,20 @@ function toFlowNode(n: {
   };
 }
 
-export function LifeCanvas() {
+export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName: string }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loaded, setLoaded] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  }
+
   // Load canvas on mount
   useEffect(() => {
-    fetch("/api/canvas")
+    fetch(`/api/canvas?canvas=${canvasId}`)
       .then((r) => r.json())
       .then((data) => {
         setNodes(data.nodes.map(toFlowNode));
@@ -79,7 +84,7 @@ export function LifeCanvas() {
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, [setNodes, setEdges]);
+  }, [canvasId, setNodes, setEdges]);
 
   // Auto-save (debounced 1.5s)
   const scheduleSave = useCallback(
@@ -91,6 +96,7 @@ export function LifeCanvas() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            canvasId,
             nodes: currentNodes.map((n) => ({
               id: n.id,
               type: n.type,
@@ -222,6 +228,22 @@ export function LifeCanvas() {
         />
       </ReactFlow>
       <Toolbar onAdd={addNode} />
+
+      {/* User bar */}
+      <div style={{
+        position: "fixed", top: 16, right: 16, display: "flex", alignItems: "center",
+        gap: 10, background: "#18181b", border: "1px solid #27272a",
+        borderRadius: 10, padding: "6px 12px", zIndex: 10,
+        boxShadow: "0 4px 16px #00000066",
+      }}>
+        <span style={{ fontSize: 13, color: "#71717a" }}>{userName}</span>
+        <button
+          onClick={logout}
+          style={{ fontSize: 12, color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+        >
+          Sign out
+        </button>
+      </div>
     </div>
   );
 }

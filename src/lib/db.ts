@@ -17,8 +17,42 @@ export async function initDb() {
   const db = getDb();
   await db.batch([
     {
+      sql: `CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS canvases (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT 'My Canvas',
+        owner_id TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'personal' CHECK(type IN ('personal', 'shared')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      args: [],
+    },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS canvas_members (
+        canvas_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('owner', 'member')),
+        added_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (canvas_id, user_id),
+        FOREIGN KEY (canvas_id) REFERENCES canvases(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      args: [],
+    },
+    {
       sql: `CREATE TABLE IF NOT EXISTS canvas_nodes (
         id TEXT PRIMARY KEY,
+        canvas_id TEXT NOT NULL,
         type TEXT NOT NULL,
         position_x REAL NOT NULL DEFAULT 0,
         position_y REAL NOT NULL DEFAULT 0,
@@ -26,47 +60,154 @@ export async function initDb() {
         height REAL,
         data TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (canvas_id) REFERENCES canvases(id) ON DELETE CASCADE
       )`,
       args: [],
     },
     {
       sql: `CREATE TABLE IF NOT EXISTS canvas_edges (
         id TEXT PRIMARY KEY,
+        canvas_id TEXT NOT NULL,
         source_id TEXT NOT NULL,
         target_id TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (canvas_id) REFERENCES canvases(id) ON DELETE CASCADE
       )`,
       args: [],
     },
   ]);
 }
 
-export type DbNode = {
+// ─── USERS ────────────────────────────────────────────────────────────────────
+
+export type User = {
   id: string;
-  type: string;
-  position_x: number;
-  position_y: number;
-  width: number | null;
-  height: number | null;
-  data: string;
+  email: string;
+  name: string;
+  password_hash: string;
   created_at: string;
-  updated_at: string;
+};
+
+export async function createUser(data: { id: string; email: string; name: string; password_hash: string }): Promise<User> {
+  const db = getDb();
+  await initDb();
+  await db.execute({
+    sql: "INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)",
+    args: [data.id, data.email, data.name, data.password_hash],
+  });
+  // Auto-create personal canvas
+  const canvasId = `canvas_${data.id}`;
+  await db.execute({
+    sql: "INSERT INTO canvases (id, name, owner_id, type) VALUES (?, ?, ?, 'personal')",
+    args: [canvasId, "My Canvas", data.id],
+  });
+  await db.execute({
+    sql: "INSERT INTO canvas_members (canvas_id, user_id, role) VALUES (?, ?, 'owner')",
+    args: [canvasId, data.id],
+  });
+  const row = await db.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [data.id] });
+  return row.rows[0] as unknown as User;
+}
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const db = getDb();
+  await initDb();
+  const result = await db.execute({ sql: "SELECT * FROM users WHERE email = ?", args: [email] });
+  return result.rows[0] as unknown as User ?? null;
+}
+
+export async function getUserById(id: string): Promise<User | null> {
+  const db = getDb();
+  await initDb();
+  const result = await db.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [id] });
+  return result.rows[0] as unknown as User ?? null;
+}
+
+// ─── CANVASES ─────────────────────────────────────────────────────────────────
+
+export type Canvas = {
+  id: string;
+  name: string;
+  owner_id: string;
+  type: "personal" | "shared";
+  created_at: string;
+};
+
+export async function getPersonalCanvas(userId: string): Promise<Canvas | null> {
+  const db = getDb();
+  await initDb();
+  const result = await db.execute({
+    sql: "SELECT * FROM canvases WHERE owner_id = ? AND type = 'personal' LIMIT 1",
+    args: [userId],
+  });
+  return result.rows[0] as unknown as Canvas ?? null;
+}
+
+export async function getUserCanvases(userId: string): Promise<Canvas[]> {
+  const db = getDb();
+  await initDb();
+  const result = await db.execute({
+    sql: `SELECT c.* FROM canvases c
+          JOIN canvas_members cm ON cm.canvas_id = c.id
+          WHERE cm.user_id = ?
+          ORDER BY c.created_at ASC`,
+    args: [userId],
+  });
+  return result.rows as unknown as Canvas[];
+}
+
+export async function canAccessCanvas(userId: string, canvasId: string): Promise<boolean> {
+  const db = getDb();
+  const result = await db.execute({
+    sql: "SELECT 1 FROM canvas_members WHERE canvas_id = ? AND user_id = ? LIMIT 1",
+    args: [canvasId, userId],
+  });
+  return result.rows.length > 0;
+}
+
+export async function createSharedCanvas(data: { id: string; name: string; owner_id: string }): Promise<Canvas> {
+  const db = getDb();
+  await initDb();
+  await db.execute({
+    sql: "INSERT INTO canvases (id, name, owner_id, type) VALUES (?, ?, ?, 'shared')",
+    args: [data.id, data.name, data.owner_id],
+  });
+  await db.execute({
+    sql: "INSERT INTO canvas_members (canvas_id, user_id, role) VALUES (?, ?, 'owner')",
+    args: [data.id, data.owner_id],
+  });
+  const row = await db.execute({ sql: "SELECT * FROM canvases WHERE id = ?", args: [data.id] });
+  return row.rows[0] as unknown as Canvas;
+}
+
+export async function addCanvasMember(canvasId: string, userId: string): Promise<void> {
+  const db = getDb();
+  await db.execute({
+    sql: "INSERT OR IGNORE INTO canvas_members (canvas_id, user_id, role) VALUES (?, ?, 'member')",
+    args: [canvasId, userId],
+  });
+}
+
+// ─── CANVAS NODES/EDGES ───────────────────────────────────────────────────────
+
+export type DbNode = {
+  id: string; canvas_id: string; type: string;
+  position_x: number; position_y: number;
+  width: number | null; height: number | null;
+  data: string; created_at: string; updated_at: string;
 };
 
 export type DbEdge = {
-  id: string;
-  source_id: string;
-  target_id: string;
-  created_at: string;
+  id: string; canvas_id: string; source_id: string; target_id: string; created_at: string;
 };
 
-export async function getCanvas() {
+export async function getCanvasData(canvasId: string) {
   const db = getDb();
   await initDb();
   const [nodesResult, edgesResult] = await Promise.all([
-    db.execute({ sql: "SELECT * FROM canvas_nodes ORDER BY created_at ASC", args: [] }),
-    db.execute({ sql: "SELECT * FROM canvas_edges ORDER BY created_at ASC", args: [] }),
+    db.execute({ sql: "SELECT * FROM canvas_nodes WHERE canvas_id = ? ORDER BY created_at ASC", args: [canvasId] }),
+    db.execute({ sql: "SELECT * FROM canvas_edges WHERE canvas_id = ? ORDER BY created_at ASC", args: [canvasId] }),
   ]);
   return {
     nodes: nodesResult.rows as unknown as DbNode[],
@@ -74,80 +215,28 @@ export async function getCanvas() {
   };
 }
 
-export async function upsertNode(node: {
-  id: string;
-  type: string;
-  position_x: number;
-  position_y: number;
-  width?: number | null;
-  height?: number | null;
-  data?: object;
-}) {
-  const db = getDb();
-  await db.execute({
-    sql: `INSERT INTO canvas_nodes (id, type, position_x, position_y, width, height, data, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-          ON CONFLICT(id) DO UPDATE SET
-            position_x = excluded.position_x,
-            position_y = excluded.position_y,
-            width = excluded.width,
-            height = excluded.height,
-            data = excluded.data,
-            updated_at = datetime('now')`,
-    args: [
-      node.id,
-      node.type,
-      node.position_x,
-      node.position_y,
-      node.width ?? null,
-      node.height ?? null,
-      JSON.stringify(node.data ?? {}),
-    ],
-  });
-}
-
-export async function deleteNode(id: string) {
-  const db = getDb();
-  await db.batch([
-    { sql: "DELETE FROM canvas_nodes WHERE id = ?", args: [id] },
-    { sql: "DELETE FROM canvas_edges WHERE source_id = ? OR target_id = ?", args: [id, id] },
-  ]);
-}
-
-export async function upsertEdge(edge: { id: string; source_id: string; target_id: string }) {
-  const db = getDb();
-  await db.execute({
-    sql: `INSERT OR IGNORE INTO canvas_edges (id, source_id, target_id) VALUES (?, ?, ?)`,
-    args: [edge.id, edge.source_id, edge.target_id],
-  });
-}
-
-export async function deleteEdge(id: string) {
-  const db = getDb();
-  await db.execute({ sql: "DELETE FROM canvas_edges WHERE id = ?", args: [id] });
-}
-
-export async function saveCanvas(nodes: {
-  id: string; type: string; position_x: number; position_y: number;
-  width?: number | null; height?: number | null; data?: object;
-}[], edges: { id: string; source_id: string; target_id: string }[]) {
+export async function saveCanvasData(
+  canvasId: string,
+  nodes: { id: string; type: string; position_x: number; position_y: number; width?: number | null; height?: number | null; data?: Record<string, unknown> }[],
+  edges: { id: string; source_id: string; target_id: string }[]
+) {
   const db = getDb();
   await initDb();
-
-  // Replace all
   await db.batch([
-    { sql: "DELETE FROM canvas_edges", args: [] },
-    { sql: "DELETE FROM canvas_nodes", args: [] },
+    { sql: "DELETE FROM canvas_edges WHERE canvas_id = ?", args: [canvasId] },
+    { sql: "DELETE FROM canvas_nodes WHERE canvas_id = ?", args: [canvasId] },
   ]);
-
-  if (nodes.length > 0) {
-    for (const n of nodes) {
-      await upsertNode(n);
-    }
+  for (const n of nodes) {
+    await db.execute({
+      sql: `INSERT INTO canvas_nodes (id, canvas_id, type, position_x, position_y, width, height, data, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      args: [n.id, canvasId, n.type, n.position_x, n.position_y, n.width ?? null, n.height ?? null, JSON.stringify(n.data ?? {})],
+    });
   }
-  if (edges.length > 0) {
-    for (const e of edges) {
-      await upsertEdge(e);
-    }
+  for (const e of edges) {
+    await db.execute({
+      sql: "INSERT INTO canvas_edges (id, canvas_id, source_id, target_id) VALUES (?, ?, ?, ?)",
+      args: [e.id, canvasId, e.source_id, e.target_id],
+    });
   }
 }
