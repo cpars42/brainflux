@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { useEditingNodeId } from "../LifeCanvas";
 
 export type StickyData = {
   content?: string;
@@ -17,11 +18,13 @@ const COLORS = [
   { bg: "#c4b5fd", text: "#2e1065" }, // purple
 ];
 
-export function StickyNode({ data, selected }: NodeProps) {
+export function StickyNode({ id, data, selected }: NodeProps) {
   const nodeData = data as StickyData;
   const colorIdx = COLORS.findIndex((c) => c.bg === nodeData.color) ?? 0;
   const [colorIndex, setColorIndex] = useState(colorIdx >= 0 ? colorIdx : 0);
   const [content, setContent] = useState(nodeData.content ?? "");
+  const editingNodeId = useEditingNodeId();
+  const isEditing = editingNodeId === id;
 
   const color = COLORS[colorIndex];
 
@@ -33,7 +36,11 @@ export function StickyNode({ data, selected }: NodeProps) {
       <div
         style={{
           background: color.bg,
-          border: selected ? "2px solid #6366f1" : "2px solid transparent",
+          border: isEditing
+            ? "2px solid #22d3ee"
+            : selected
+            ? "2px solid #6366f1"
+            : "2px solid transparent",
           borderRadius: 8,
           width: 180,
           minHeight: 140,
@@ -51,15 +58,24 @@ export function StickyNode({ data, selected }: NodeProps) {
             setContent(e.target.value);
             nodeData.content = e.target.value;
           }}
-          placeholder="Quick thought..."
+          placeholder={isEditing ? "Quick thought..." : "Double-click to edit"}
           className="flex-1 w-full bg-transparent text-sm outline-none resize-none"
-          style={{ color: color.text, fontWeight: 500, lineHeight: 1.5, minHeight: 80 }}
+          style={{
+            color: color.text,
+            fontWeight: 500,
+            lineHeight: 1.5,
+            minHeight: 80,
+            pointerEvents: isEditing ? "auto" : "none",
+            userSelect: isEditing ? "auto" : "none",
+            cursor: isEditing ? "text" : "default",
+          }}
         />
         <div style={{ display: "flex", gap: 4 }}>
           {COLORS.map((c, i) => (
             <button
               key={i}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setColorIndex(i);
                 nodeData.color = c.bg;
               }}

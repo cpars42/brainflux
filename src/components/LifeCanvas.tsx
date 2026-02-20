@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -26,6 +26,16 @@ import { TimerNode } from "./nodes/TimerNode";
 import { HourglassNode } from "./nodes/HourglassNode";
 import { LinkNode } from "./nodes/LinkNode";
 import { Toolbar } from "./Toolbar";
+
+// ─── Edit Mode Context ────────────────────────────────────────────────────────
+// Tracks which node (if any) is currently in text-edit mode.
+// Nodes in edit mode: text interactions work normally.
+// Nodes NOT in edit mode: pointer-events disabled on text areas → canvas handles drag/pan.
+
+export const EditingContext = createContext<string | null>(null);
+export const useEditingNodeId = () => useContext(EditingContext);
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const NODE_TYPES: NodeTypes = {
   note: NoteNode,
@@ -170,6 +180,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loaded, setLoaded] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { fitView, screenToFlowPosition } = useReactFlow();
 
@@ -269,6 +280,17 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     [setNodes, edges, scheduleSave]
   );
 
+  // Edit mode — enter/exit
+  const enterEditMode = useCallback((nodeId: string) => {
+    setEditingNodeId(nodeId);
+    setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, draggable: false } : n)));
+  }, [setNodes]);
+
+  const exitEditMode = useCallback(() => {
+    setEditingNodeId(null);
+    setNodes((nds) => nds.map((n) => ({ ...n, draggable: true })));
+  }, [setNodes]);
+
   // Voice note — create NoteNode at viewport center with transcript
   const addVoiceNoteNode = useCallback(
     (transcript: string) => {
@@ -350,9 +372,15 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   // Delete selected nodes on Backspace/Delete key
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        exitEditMode();
+        return;
+      }
       if (e.key === "Backspace" || e.key === "Delete") {
         const active = document.activeElement;
         if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        // Don't delete nodes while one is being edited
+        if (editingNodeId) return;
         setNodes((nds) => {
           const next = nds.filter((n) => !n.selected);
           if (next.length !== nds.length) scheduleSave(next, edges);
@@ -361,7 +389,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         setEdges((eds) => eds.filter((e) => !e.selected));
       }
     },
-    [setNodes, setEdges, edges, scheduleSave]
+    [setNodes, setEdges, edges, scheduleSave, editingNodeId, exitEditMode]
   );
 
   useEffect(() => {
@@ -369,17 +397,16 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onKeyDown]);
 
-  // Double-click → center + zoom to node
+  // Double-click → enter edit mode; Shift+double-click → zoom to node
   const onNodeDoubleClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      fitView({
-        nodes: [{ id: node.id }],
-        padding: 0.4,
-        duration: 500,
-        maxZoom: 1.5,
-      });
+    (e: React.MouseEvent, node: Node) => {
+      if (e.shiftKey) {
+        fitView({ nodes: [{ id: node.id }], padding: 0.4, duration: 500, maxZoom: 1.5 });
+      } else {
+        enterEditMode(node.id);
+      }
     },
-    [fitView]
+    [fitView, enterEditMode]
   );
 
   // Right-click → context menu
@@ -402,6 +429,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   );
 
   return (
+    <EditingContext.Provider value={editingNodeId}>
     <div
       style={{ width: "100vw", height: "100vh" }}
       onClick={() => setContextMenu(null)}
@@ -429,7 +457,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         proOptions={{ hideAttribution: true }}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
-        onPaneClick={() => setContextMenu(null)}
+        onPaneClick={() => { setContextMenu(null); exitEditMode(); }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#27272a" />
         <Controls />
@@ -467,6 +495,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         />
       )}
     </div>
+    </EditingContext.Provider>
   );
 }
 
