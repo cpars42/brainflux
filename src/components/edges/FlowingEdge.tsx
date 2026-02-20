@@ -1,6 +1,25 @@
 "use client";
 
-import { getBezierPath, useNodes, type EdgeProps } from "@xyflow/react";
+import { getBezierPath, useNodes, useEdges, type EdgeProps } from "@xyflow/react";
+
+/** BFS from all selected nodes, following edges source→target. Returns set of reachable node IDs. */
+function getReachableFromSelected(
+  selectedIds: Set<string>,
+  allEdges: { source: string; target: string }[]
+): Set<string> {
+  const reachable = new Set<string>(selectedIds);
+  const queue = Array.from(selectedIds);
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const e of allEdges) {
+      if (e.source === current && !reachable.has(e.target)) {
+        reachable.add(e.target);
+        queue.push(e.target);
+      }
+    }
+  }
+  return reachable;
+}
 
 export function FlowingEdge({
   id,
@@ -16,9 +35,13 @@ export function FlowingEdge({
   markerEnd,
 }: EdgeProps) {
   const nodes = useNodes();
-  const sourceNode = nodes.find((n) => n.id === source);
-  const targetNode = nodes.find((n) => n.id === target);
-  const isActive = selected || !!sourceNode?.selected || !!targetNode?.selected;
+  const allEdges = useEdges();
+
+  const selectedIds = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
+  const reachable = getReachableFromSelected(selectedIds, allEdges);
+
+  // Active if: edge itself selected, OR source is reachable from any selected node
+  const isActive = selected || reachable.has(source);
 
   const [edgePath] = getBezierPath({
     sourceX,
@@ -40,7 +63,7 @@ export function FlowingEdge({
         fill="none"
       />
 
-      {/* Flowing dashes overlay — active when source node is selected */}
+      {/* Flowing dashes overlay — active when source is reachable from a selected node */}
       {isActive && (
         <path
           d={edgePath}
