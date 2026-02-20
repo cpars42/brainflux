@@ -18,8 +18,16 @@ export function FlowingEdge({
   const nodes = useNodes();
   const selectedIds = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
 
-  // Only activate edges directly touching a selected node (no propagation)
-  const isActive = selected || selectedIds.has(source) || selectedIds.has(target);
+  const sourceSelected = selectedIds.has(source);
+  const targetSelected = selectedIds.has(target);
+  const isActive = selected || sourceSelected || targetSelected;
+
+  // Flow direction: always away from the selected node.
+  // SVG path runs source→target, so:
+  //   source selected → forward  (from="14" to="0")
+  //   target selected → reverse  (from="0"  to="14")
+  // If both selected (same direction preference), forward wins.
+  const reverse = targetSelected && !sourceSelected;
 
   const [edgePath] = getBezierPath({
     sourceX,
@@ -52,8 +60,8 @@ export function FlowingEdge({
         >
           <animate
             attributeName="stroke-dashoffset"
-            from="14"
-            to="0"
+            from={reverse ? "0" : "14"}
+            to={reverse ? "14" : "0"}
             dur="0.45s"
             repeatCount="indefinite"
           />
