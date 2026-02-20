@@ -8,7 +8,7 @@ export function getDb(): Client {
   if (url) {
     client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
   } else {
-    client = createClient({ url: "file:./data/life-os.db" });
+    client = createClient({ url: "file:./data/brainflux.db" });
   }
   return client;
 }

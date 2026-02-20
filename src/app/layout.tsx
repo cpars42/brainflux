@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Life OS",
-  description: "Your personal canvas",
+  title: "BrainFlux",
+  description: "Your infinite canvas",
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Life OS" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "BrainFlux" },
 };
 
 export const viewport: Viewport = {
