@@ -22,10 +22,10 @@ export function LinkNode({ data, selected }: NodeProps) {
 
   return (
     <>
-      <Handle type="target" position={Position.Top} />
-      <Handle type="source" position={Position.Bottom} />
-      <Handle type="source" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
+      <Handle id="top"    type="source" position={Position.Top} />
+      <Handle id="bottom" type="source" position={Position.Bottom} />
+      <Handle id="left"   type="source" position={Position.Left} />
+      <Handle id="right"  type="source" position={Position.Right} />
       <a
         href={nodeData.url}
         target="_blank"

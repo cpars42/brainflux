@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       target: e.target_id,
       sourceHandle: e.source_handle ?? null,
       targetHandle: e.target_handle ?? null,
-      type: "smoothstep",
+      type: "default",
     })),
   });
 }

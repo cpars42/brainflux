@@ -259,7 +259,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      const edge: Edge = { ...connection, id: nanoid(), type: "smoothstep" };
+      const edge: Edge = { ...connection, id: nanoid(), type: "default" };
       setEdges((eds) => {
         const next = addEdge(edge, eds);
         scheduleSave(nodes, next);
@@ -472,7 +472,8 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         fitView={nodes.length > 0}
         minZoom={0.1}
         maxZoom={2}
-        defaultEdgeOptions={{ type: "smoothstep" }}
+        defaultEdgeOptions={{ type: "default" }}
+        connectionRadius={40}
         colorMode="dark"
         panOnDrag={editingNodeId === null}
         zoomOnDoubleClick={false}

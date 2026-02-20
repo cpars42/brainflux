@@ -30,10 +30,10 @@ export function NoteNode({ id, data, selected }: NodeProps) {
         lineStyle={{ borderColor: "#6366f1" }}
         handleStyle={{ backgroundColor: "#6366f1", border: "none" }}
       />
-      <Handle type="target" position={Position.Top} />
-      <Handle type="source" position={Position.Bottom} />
-      <Handle type="source" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
+      <Handle id="top"    type="source" position={Position.Top} />
+      <Handle id="bottom" type="source" position={Position.Bottom} />
+      <Handle id="left"   type="source" position={Position.Left} />
+      <Handle id="right"  type="source" position={Position.Right} />
 
       <div
         className="h-full flex flex-col rounded-xl overflow-hidden"

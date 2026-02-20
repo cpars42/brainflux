@@ -30,8 +30,10 @@ export function StickyNode({ id, data, selected }: NodeProps) {
 
   return (
     <>
-      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+      <Handle id="top"    type="source" position={Position.Top} />
+      <Handle id="bottom" type="source" position={Position.Bottom} />
+      <Handle id="left"   type="source" position={Position.Left} />
+      <Handle id="right"  type="source" position={Position.Right} />
 
       <div
         style={{
