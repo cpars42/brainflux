@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { useTriggerSave } from "../LifeCanvas";
 
 export type HourglassData = {
   durationMinutes?: number;
+  endTime?: number | null;
+  remainingMs?: number | null;
 };
 
 const COLS = 16;
@@ -155,30 +158,64 @@ function HourglassDisplay({ progress, running }: { progress: number; running: bo
 export function HourglassNode({ data, selected }: NodeProps) {
   const nodeData = data as HourglassData;
   const durationMins = nodeData.durationMinutes ?? 10;
+  const triggerSave = useTriggerSave();
 
-  // Track time in ms to avoid float drift; 200ms ticks = 5fps updates
-  const [totalMs, setTotalMs] = useState(durationMins * 60 * 1000);
-  const [remainingMs, setRemainingMs] = useState(durationMins * 60 * 1000);
-  const [running, setRunning] = useState(false);
+  const totalMsBase = durationMins * 60 * 1000;
+
+  const getInitialRemainingMs = () => {
+    if (nodeData.endTime) {
+      const r = nodeData.endTime - Date.now();
+      return r > 0 ? r : 0;
+    }
+    if (nodeData.remainingMs != null) return nodeData.remainingMs;
+    return totalMsBase;
+  };
+  const isInitiallyRunning = () => !!nodeData.endTime && nodeData.endTime > Date.now();
+
+  const [totalMs] = useState(totalMsBase);
+  const [remainingMs, setRemainingMs] = useState(getInitialRemainingMs);
+  const [running, setRunning] = useState(isInitiallyRunning);
   const [settingTime, setSettingTime] = useState(false);
   const [inputMins, setInputMins] = useState(String(durationMins));
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const TICK = 200; // ms per tick
+  const TICK = 200;
 
+  // Tick from endTime for accuracy
   useEffect(() => {
-    if (running) {
+    if (running && nodeData.endTime) {
       intervalRef.current = setInterval(() => {
-        setRemainingMs((r) => {
-          if (r <= TICK) { setRunning(false); return 0; }
-          return r - TICK;
-        });
+        const r = nodeData.endTime! - Date.now();
+        if (r <= 0) {
+          setRemainingMs(0);
+          setRunning(false);
+          nodeData.endTime = null;
+          nodeData.remainingMs = 0;
+          triggerSave();
+          if (intervalRef.current) clearInterval(intervalRef.current);
+        } else {
+          setRemainingMs(r);
+        }
       }, TICK);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running]);
+  }, [running, nodeData, triggerSave]);
+
+  const start = useCallback(() => {
+    nodeData.endTime = Date.now() + remainingMs;
+    nodeData.remainingMs = null;
+    setRunning(true);
+    triggerSave();
+  }, [remainingMs, nodeData, triggerSave]);
+
+  const pause = useCallback(() => {
+    nodeData.endTime = null;
+    nodeData.remainingMs = remainingMs;
+    setRunning(false);
+    triggerSave();
+  }, [remainingMs, nodeData, triggerSave]);
 
   const progress = totalMs > 0 ? (totalMs - remainingMs) / totalMs : 0;
   const done = remainingMs === 0;
@@ -189,11 +226,14 @@ export function HourglassNode({ data, selected }: NodeProps) {
   const applyTime = () => {
     const mins = Math.max(1, parseInt(inputMins) || 10);
     const ms = mins * 60 * 1000;
-    setTotalMs(ms);
-    setRemainingMs(ms);
     nodeData.durationMinutes = mins;
-    setSettingTime(false);
+    nodeData.endTime = null;
+    nodeData.remainingMs = null;
+    setRemainingMs(ms);
     setRunning(false);
+    setSettingTime(false);
+    setInputMins(String(mins));
+    triggerSave();
   };
 
   return (
@@ -246,10 +286,11 @@ export function HourglassNode({ data, selected }: NodeProps) {
 
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={() => setRunning((r) => !r)}
+            onClick={running ? pause : start}
+            disabled={done}
             style={{
-              background: running ? "#27272a" : "#f59e0b",
-              color: running ? "#a1a1aa" : "#1a1a1a",
+              background: running ? "#27272a" : done ? "#3f3f46" : "#f59e0b",
+              color: running ? "#a1a1aa" : done ? "#a1a1aa" : "#1a1a1a",
               border: "none",
               borderRadius: 8,
               padding: "4px 14px",
@@ -261,7 +302,7 @@ export function HourglassNode({ data, selected }: NodeProps) {
             {running ? "Pause" : done ? "Done ✓" : "Start"}
           </button>
           <button
-            onClick={() => { setRunning(false); setRemainingMs(totalMs); }}
+            onClick={() => { nodeData.endTime = null; nodeData.remainingMs = null; setRunning(false); setRemainingMs(totalMs); triggerSave(); }}
             style={{ background: "none", color: "#52525b", border: "1px solid #27272a", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
           >
             ↺

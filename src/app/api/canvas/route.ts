@@ -26,9 +26,10 @@ export async function GET(req: NextRequest) {
   const result = await resolveCanvas(req, canvasId);
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 
-  const { nodes, edges } = await getCanvasData(result.canvasId);
+  const { nodes, edges, viewport } = await getCanvasData(result.canvasId);
   return NextResponse.json({
     canvasId: result.canvasId,
+    viewport: viewport ?? null,
     nodes: nodes.map((n) => ({
       id: n.id, type: n.type,
       position: { x: n.position_x, y: n.position_y },
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { nodes = [], edges = [], canvasId: bodyCanvasId } = body;
+  const { nodes = [], edges = [], viewport = null, canvasId: bodyCanvasId } = body;
 
   const result = await resolveCanvas(req, bodyCanvasId);
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
@@ -69,7 +70,8 @@ export async function POST(req: NextRequest) {
       target_id: e.target,
       source_handle: e.sourceHandle ?? null,
       target_handle: e.targetHandle ?? null,
-    }))
+    })),
+    viewport
   );
 
   return NextResponse.json({ ok: true });

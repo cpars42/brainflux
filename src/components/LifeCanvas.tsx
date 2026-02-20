@@ -28,13 +28,15 @@ import { HourglassNode } from "./nodes/HourglassNode";
 import { LinkNode } from "./nodes/LinkNode";
 import { Toolbar } from "./Toolbar";
 
-// ─── Edit Mode Context ────────────────────────────────────────────────────────
-// Tracks which node (if any) is currently in text-edit mode.
-// Nodes in edit mode: text interactions work normally.
-// Nodes NOT in edit mode: pointer-events disabled on text areas → canvas handles drag/pan.
+// ─── Contexts ─────────────────────────────────────────────────────────────────
 
+// Edit mode: tracks which node (if any) is in text-edit mode.
 export const EditingContext = createContext<string | null>(null);
 export const useEditingNodeId = () => useContext(EditingContext);
+
+// Trigger save: lets nodes force a canvas save (e.g. timer start/stop).
+export const TriggerSaveContext = createContext<() => void>(() => {});
+export const useTriggerSave = () => useContext(TriggerSaveContext);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -183,7 +185,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const { fitView, screenToFlowPosition, getViewport, setViewport } = useReactFlow();
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -197,10 +199,13 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
       .then((data) => {
         setNodes(data.nodes.map(toFlowNode));
         setEdges(data.edges);
+        if (data.viewport) {
+          setViewport(data.viewport, { duration: 0 });
+        }
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, [canvasId, setNodes, setEdges]);
+  }, [canvasId, setNodes, setEdges, setViewport]);
 
   // Auto-save (debounced 1.5s)
   const scheduleSave = useCallback(
@@ -213,6 +218,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             canvasId,
+            viewport: getViewport(),
             nodes: currentNodes.map((n) => ({
               id: n.id,
               type: n.type,
@@ -232,7 +238,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         });
       }, 1500);
     },
-    [loaded, canvasId]
+    [loaded, canvasId, getViewport]
   );
 
   const handleNodesChange = useCallback(
@@ -297,6 +303,11 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     setEditingNodeId(null);
     setNodes((nds) => nds.map((n) => ({ ...n, draggable: true })));
   }, [setNodes]);
+
+  // Exposed to child nodes so they can force a save (e.g. when timer starts/stops)
+  const triggerSave = useCallback(() => {
+    setNodes((nds) => { scheduleSave(nds, edges); return nds; });
+  }, [setNodes, edges, scheduleSave]);
 
   // Voice note — create NoteNode at viewport center with transcript
   const addVoiceNoteNode = useCallback(
@@ -436,6 +447,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   );
 
   return (
+    <TriggerSaveContext.Provider value={triggerSave}>
     <EditingContext.Provider value={editingNodeId}>
     <div
       style={{ width: "100vw", height: "100vh" }}
@@ -469,6 +481,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
         onPaneClick={() => { setContextMenu(null); exitEditMode(); }}
+        onMoveEnd={() => scheduleSave(nodes, edges)}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#27272a" />
         <Controls />
@@ -507,6 +520,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
       )}
     </div>
     </EditingContext.Provider>
+    </TriggerSaveContext.Provider>
   );
 }
 

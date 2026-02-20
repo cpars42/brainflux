@@ -79,9 +79,10 @@ export async function initDb() {
       args: [],
     },
   ]);
-  // Migrate existing DBs — add handle columns if missing (ALTER TABLE ignores IF NOT EXISTS, so catch)
+  // Migrations — add new columns to existing DBs safely
   try { await db.execute({ sql: "ALTER TABLE canvas_edges ADD COLUMN source_handle TEXT", args: [] }); } catch { /* already exists */ }
   try { await db.execute({ sql: "ALTER TABLE canvas_edges ADD COLUMN target_handle TEXT", args: [] }); } catch { /* already exists */ }
+  try { await db.execute({ sql: "ALTER TABLE canvases ADD COLUMN viewport TEXT", args: [] }); } catch { /* already exists */ }
 }
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
@@ -136,6 +137,7 @@ export type Canvas = {
   name: string;
   owner_id: string;
   type: "personal" | "shared";
+  viewport: string | null;
   created_at: string;
 };
 
@@ -212,26 +214,31 @@ export type DbEdge = {
 export async function getCanvasData(canvasId: string) {
   const db = getDb();
   await initDb();
-  const [nodesResult, edgesResult] = await Promise.all([
+  const [nodesResult, edgesResult, canvasResult] = await Promise.all([
     db.execute({ sql: "SELECT * FROM canvas_nodes WHERE canvas_id = ? ORDER BY created_at ASC", args: [canvasId] }),
     db.execute({ sql: "SELECT * FROM canvas_edges WHERE canvas_id = ? ORDER BY created_at ASC", args: [canvasId] }),
+    db.execute({ sql: "SELECT viewport FROM canvases WHERE id = ?", args: [canvasId] }),
   ]);
+  const viewportRaw = (canvasResult.rows[0] as unknown as { viewport: string | null })?.viewport ?? null;
   return {
     nodes: nodesResult.rows as unknown as DbNode[],
     edges: edgesResult.rows as unknown as DbEdge[],
+    viewport: viewportRaw ? JSON.parse(viewportRaw) as { x: number; y: number; zoom: number } : null,
   };
 }
 
 export async function saveCanvasData(
   canvasId: string,
   nodes: { id: string; type: string; position_x: number; position_y: number; width?: number | null; height?: number | null; data?: Record<string, unknown> }[],
-  edges: { id: string; source_id: string; target_id: string; source_handle?: string | null; target_handle?: string | null }[]
+  edges: { id: string; source_id: string; target_id: string; source_handle?: string | null; target_handle?: string | null }[],
+  viewport?: { x: number; y: number; zoom: number } | null
 ) {
   const db = getDb();
   await initDb();
   await db.batch([
     { sql: "DELETE FROM canvas_edges WHERE canvas_id = ?", args: [canvasId] },
     { sql: "DELETE FROM canvas_nodes WHERE canvas_id = ?", args: [canvasId] },
+    ...(viewport != null ? [{ sql: "UPDATE canvases SET viewport = ? WHERE id = ?", args: [JSON.stringify(viewport), canvasId] }] : []),
   ]);
   for (const n of nodes) {
     await db.execute({
