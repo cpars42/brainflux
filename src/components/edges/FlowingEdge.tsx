@@ -38,7 +38,7 @@ export function FlowingEdge({
         fill="none"
       />
 
-      {/* Flowing dashes — only when source is selected */}
+      {/* Flowing dashes overlay — active when source node is selected */}
       {isActive && (
         <path
           d={edgePath}
@@ -47,9 +47,17 @@ export function FlowingEdge({
           strokeWidth={2.5}
           strokeDasharray="8 6"
           strokeLinecap="round"
-          className="flowing-edge-anim"
+          strokeDashoffset={0}
           style={{ pointerEvents: "none" }}
-        />
+        >
+          <animate
+            attributeName="stroke-dashoffset"
+            from="14"
+            to="0"
+            dur="0.45s"
+            repeatCount="indefinite"
+          />
+        </path>
       )}
     </g>
   );

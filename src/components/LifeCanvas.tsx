@@ -190,6 +190,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
   const [loaded, setLoaded] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const savedViewport = useRef<{ x: number; y: number; zoom: number } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { fitView, screenToFlowPosition, getViewport, setViewport } = useReactFlow();
 
@@ -205,13 +206,19 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
       .then((data) => {
         setNodes(data.nodes.map(toFlowNode));
         setEdges(data.edges);
-        if (data.viewport) {
-          setViewport(data.viewport, { duration: 0 });
-        }
+        if (data.viewport) savedViewport.current = data.viewport;
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, [canvasId, setNodes, setEdges, setViewport]);
+  }, [canvasId, setNodes, setEdges]);
+
+  // Restore viewport after nodes have rendered
+  useEffect(() => {
+    if (loaded && savedViewport.current) {
+      setViewport(savedViewport.current, { duration: 0 });
+      savedViewport.current = null;
+    }
+  }, [loaded, setViewport]);
 
   // Auto-save (debounced 1.5s)
   const scheduleSave = useCallback(
@@ -476,7 +483,6 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         onConnect={onConnect}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
-        fitView={nodes.length > 0}
         minZoom={0.1}
         maxZoom={2}
         defaultEdgeOptions={{ type: "default" }}
