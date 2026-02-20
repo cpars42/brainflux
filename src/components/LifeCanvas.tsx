@@ -264,10 +264,14 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
     (type: string) => {
       const id = nanoid();
       const size = DEFAULT_NODE_SIZE[type] ?? {};
+      const position = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
       const newNode: Node = {
         id,
         type,
-        position: { x: 100 + Math.random() * 300, y: 100 + Math.random() * 200 },
+        position,
         data: { ...DEFAULT_NODE_DATA[type] },
         style: size.width ? { width: size.width, height: size.height } : undefined,
       };
@@ -277,7 +281,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         return next;
       });
     },
-    [setNodes, edges, scheduleSave]
+    [setNodes, edges, scheduleSave, screenToFlowPosition]
   );
 
   // Edit mode — enter/exit
