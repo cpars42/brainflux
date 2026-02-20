@@ -5,6 +5,7 @@ import { getBezierPath, useNodes, type EdgeProps } from "@xyflow/react";
 export function FlowingEdge({
   id,
   source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -16,7 +17,8 @@ export function FlowingEdge({
 }: EdgeProps) {
   const nodes = useNodes();
   const sourceNode = nodes.find((n) => n.id === source);
-  const isActive = selected || !!sourceNode?.selected;
+  const targetNode = nodes.find((n) => n.id === target);
+  const isActive = selected || !!sourceNode?.selected || !!targetNode?.selected;
 
   const [edgePath] = getBezierPath({
     sourceX,
