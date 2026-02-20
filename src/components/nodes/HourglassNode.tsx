@@ -43,16 +43,15 @@ for (let r = 0; r < ROWS; r++) {
 const CENTER = (COLS - 1) / 2; // 7.5
 const CONE_SLOPE = 1.3;
 
-// Top chamber: inverted funnel — neck-center drains FIRST, spreading outward+upward
-// (mirrors the bottom cone). Low sort key = kept longest in slice = last to drain.
-// key = r - abs(c-center)*slope → neck-center has high key (drained first),
-// top-edges have low key (kept longest)
+// Top chamber: top-center drains FIRST, spreading outward+downward (mirror of bottom cone)
+// key = (ROWS/2-1-r) - abs(c-center)*slope → top-center has highest key (drained first),
+// neck-edges have lowest key (kept longest)
 const TOP_PIXELS = ALL_PIXELS
   .filter(([r]) => r < ROWS / 2)
   .sort(([r1, c1], [r2, c2]) => {
-    const k1 = r1 - Math.abs(c1 - CENTER) * CONE_SLOPE;
-    const k2 = r2 - Math.abs(c2 - CENTER) * CONE_SLOPE;
-    return k1 - k2; // ascending: low k (top edges) kept longest, high k (neck center) drained first
+    const k1 = (ROWS / 2 - 1 - r1) - Math.abs(c1 - CENTER) * CONE_SLOPE;
+    const k2 = (ROWS / 2 - 1 - r2) - Math.abs(c2 - CENTER) * CONE_SLOPE;
+    return k1 - k2;
   });
 
 // Bottom chamber: cone/mound — center column rises first, spreads outward like real sand
