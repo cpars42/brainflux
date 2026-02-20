@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   BackgroundVariant,
   Controls,
@@ -10,6 +11,7 @@ import {
   addEdge,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Connection,
   type Node,
   type Edge,
@@ -63,11 +65,110 @@ function toFlowNode(n: {
   };
 }
 
-export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName: string }) {
+// ─── Context Menu ─────────────────────────────────────────────────────────────
+
+type ContextMenuState = { x: number; y: number; nodeId: string };
+
+function ContextMenu({
+  menu,
+  onDelete,
+  onClose,
+}: {
+  menu: ContextMenuState;
+  onDelete: (id: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Clamp to viewport
+  const menuW = 160;
+  const menuH = 80;
+  const left = Math.min(menu.x, window.innerWidth - menuW - 8);
+  const top = Math.min(menu.y, window.innerHeight - menuH - 8);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "fixed",
+        left,
+        top,
+        width: menuW,
+        background: "#1c1c1f",
+        border: "1px solid #3f3f46",
+        borderRadius: 10,
+        padding: 4,
+        zIndex: 9999,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+      }}
+    >
+      <MenuItem
+        icon="🗑"
+        label="Delete"
+        color="#f87171"
+        hoverBg="#2d1515"
+        onClick={() => onDelete(menu.nodeId)}
+      />
+    </div>
+  );
+}
+
+function MenuItem({
+  icon,
+  label,
+  color,
+  hoverBg,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  color: string;
+  hoverBg: string;
+  onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+        padding: "7px 10px",
+        background: hovered ? hoverBg : "none",
+        border: "none",
+        color,
+        cursor: "pointer",
+        borderRadius: 7,
+        fontSize: 13,
+        textAlign: "left",
+        transition: "background 0.1s",
+      }}
+    >
+      <span>{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+// ─── Inner Flow Editor (needs useReactFlow — must be inside ReactFlowProvider) ─
+
+function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: string }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loaded, setLoaded] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { fitView } = useReactFlow();
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -114,16 +215,13 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
         });
       }, 1500);
     },
-    [loaded]
+    [loaded, canvasId]
   );
 
   const handleNodesChange = useCallback(
     (changes: Parameters<typeof onNodesChange>[0]) => {
       onNodesChange(changes);
-      setNodes((nds) => {
-        scheduleSave(nds, edges);
-        return nds;
-      });
+      setNodes((nds) => { scheduleSave(nds, edges); return nds; });
     },
     [onNodesChange, setNodes, edges, scheduleSave]
   );
@@ -131,10 +229,7 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
   const handleEdgesChange = useCallback(
     (changes: Parameters<typeof onEdgesChange>[0]) => {
       onEdgesChange(changes);
-      setEdges((eds) => {
-        scheduleSave(nodes, eds);
-        return eds;
-      });
+      setEdges((eds) => { scheduleSave(nodes, eds); return eds; });
     },
     [onEdgesChange, setEdges, nodes, scheduleSave]
   );
@@ -158,10 +253,7 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
       const newNode: Node = {
         id,
         type,
-        position: {
-          x: 100 + Math.random() * 300,
-          y: 100 + Math.random() * 200,
-        },
+        position: { x: 100 + Math.random() * 300, y: 100 + Math.random() * 200 },
         data: { ...DEFAULT_NODE_DATA[type] },
         style: size.width ? { width: size.width, height: size.height } : undefined,
       };
@@ -174,6 +266,7 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
     [setNodes, edges, scheduleSave]
   );
 
+  // Delete selected nodes on Backspace/Delete key
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Backspace" || e.key === "Delete") {
@@ -184,10 +277,7 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
           if (next.length !== nds.length) scheduleSave(next, edges);
           return next;
         });
-        setEdges((eds) => {
-          const next = eds.filter((e) => !e.selected);
-          return next;
-        });
+        setEdges((eds) => eds.filter((e) => !e.selected));
       }
     },
     [setNodes, setEdges, edges, scheduleSave]
@@ -198,8 +288,49 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onKeyDown]);
 
+  // Double-click → center + zoom to node
+  const onNodeDoubleClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      fitView({
+        nodes: [{ id: node.id }],
+        padding: 0.4,
+        duration: 500,
+        maxZoom: 1.5,
+      });
+    },
+    [fitView]
+  );
+
+  // Right-click → context menu
+  const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, nodeId: node.id });
+  }, []);
+
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      setNodes((nds) => {
+        const next = nds.filter((n) => n.id !== nodeId);
+        scheduleSave(next, edges);
+        return next;
+      });
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      setContextMenu(null);
+    },
+    [setNodes, setEdges, edges, scheduleSave]
+  );
+
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
+    <div
+      style={{ width: "100vw", height: "100vh" }}
+      onClick={() => setContextMenu(null)}
+      onContextMenu={(e) => {
+        // Only close if clicking the pane (not a node — node context menu stops propagation)
+        if ((e.target as HTMLElement).classList.contains("react-flow__pane")) {
+          setContextMenu(null);
+        }
+      }}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -213,13 +344,11 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
         defaultEdgeOptions={{ type: "default" }}
         colorMode="dark"
         proOptions={{ hideAttribution: true }}
+        onNodeDoubleClick={onNodeDoubleClick}
+        onNodeContextMenu={onNodeContextMenu}
+        onPaneClick={() => setContextMenu(null)}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={24}
-          size={1}
-          color="#27272a"
-        />
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#27272a" />
         <Controls />
         <MiniMap
           style={{ background: "#18181b", border: "1px solid #27272a" }}
@@ -227,6 +356,7 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
           maskColor="#09090b99"
         />
       </ReactFlow>
+
       <Toolbar onAdd={addNode} />
 
       {/* User bar */}
@@ -244,6 +374,25 @@ export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName:
           Sign out
         </button>
       </div>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <ContextMenu
+          menu={contextMenu}
+          onDelete={deleteNode}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
+  );
+}
+
+// ─── Public export — wraps inner editor in ReactFlowProvider ─────────────────
+
+export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName: string }) {
+  return (
+    <ReactFlowProvider>
+      <FlowEditorInner canvasId={canvasId} userName={userName} />
+    </ReactFlowProvider>
   );
 }
