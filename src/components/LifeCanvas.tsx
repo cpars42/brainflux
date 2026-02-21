@@ -30,6 +30,7 @@ import { TimerNode } from "./nodes/TimerNode";
 import { HourglassNode } from "./nodes/HourglassNode";
 import { LinkNode } from "./nodes/LinkNode";
 import { Toolbar } from "./Toolbar";
+import { Starfield } from "./Starfield";
 
 const EDGE_TYPES: EdgeTypes = {
   default: FlowingEdge,
@@ -707,8 +708,11 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
 
 export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName: string }) {
   return (
-    <ReactFlowProvider>
-      <FlowEditorInner canvasId={canvasId} userName={userName} />
-    </ReactFlowProvider>
+    <>
+      <Starfield />
+      <ReactFlowProvider>
+        <FlowEditorInner canvasId={canvasId} userName={userName} />
+      </ReactFlowProvider>
+    </>
   );
 }
