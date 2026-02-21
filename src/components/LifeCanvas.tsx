@@ -610,7 +610,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         onPaneClick={() => { setContextMenu(null); exitEditMode(); }}
         onMoveEnd={() => scheduleSave(nodes, edges)}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#27272a" />
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#27272a" style={{ backgroundColor: "transparent" }} />
         <Controls />
         <MiniMap
           style={{ background: "#18181b", border: "1px solid #27272a" }}
