@@ -172,7 +172,7 @@ export function HourglassNode({ data, selected }: NodeProps) {
   };
   const isInitiallyRunning = () => !!nodeData.endTime && nodeData.endTime > Date.now();
 
-  const [totalMs] = useState(totalMsBase);
+  const [totalMs, setTotalMs] = useState(totalMsBase);
   const [remainingMs, setRemainingMs] = useState(getInitialRemainingMs);
   const [running, setRunning] = useState(isInitiallyRunning);
   const [settingTime, setSettingTime] = useState(false);
@@ -229,6 +229,7 @@ export function HourglassNode({ data, selected }: NodeProps) {
     nodeData.durationMinutes = mins;
     nodeData.endTime = null;
     nodeData.remainingMs = null;
+    setTotalMs(ms);
     setRemainingMs(ms);
     setRunning(false);
     setSettingTime(false);
