@@ -6,6 +6,8 @@ import { useEditingNodeId } from "../LifeCanvas";
 
 export type WeatherData = {
   city?: string;
+  lat?: number;
+  lon?: number;
 };
 
 type WeatherInfo = {
@@ -14,6 +16,16 @@ type WeatherInfo = {
   desc: string;
   icon: string;
   humidity: string;
+};
+
+type GeoResult = {
+  id: number;
+  name: string;
+  admin1?: string;    // state/province
+  country?: string;
+  country_code?: string;
+  latitude: number;
+  longitude: number;
 };
 
 const WX_ICONS: Record<number, string> = {
@@ -29,8 +41,29 @@ const WX_ICONS: Record<number, string> = {
   389: "⛈️", 392: "⛈️", 395: "⛈️",
 };
 
-async function fetchWeather(city: string): Promise<WeatherInfo> {
-  const resp = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`);
+function formatGeoLabel(r: GeoResult): string {
+  const parts = [r.name];
+  if (r.admin1) parts.push(r.admin1);
+  if (r.country_code && r.country_code !== "US") parts.push(r.country ?? r.country_code);
+  else if (r.country_code === "US") {
+    // Already have state from admin1, add "US" only if no admin1
+    if (!r.admin1) parts.push("US");
+  }
+  return parts.join(", ");
+}
+
+async function searchCities(query: string): Promise<GeoResult[]> {
+  if (!query.trim()) return [];
+  const resp = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=8&language=en&format=json`
+  );
+  if (!resp.ok) return [];
+  const json = await resp.json();
+  return json.results ?? [];
+}
+
+async function fetchWeather(lat: number, lon: number): Promise<WeatherInfo> {
+  const resp = await fetch(`https://wttr.in/${lat},${lon}?format=j1`);
   if (!resp.ok) throw new Error("fetch failed");
   const json = await resp.json();
   const cur = json.current_condition[0];
@@ -47,21 +80,26 @@ async function fetchWeather(city: string): Promise<WeatherInfo> {
 export function WeatherNode({ id, data, selected }: NodeProps) {
   const nodeData = data as WeatherData;
   const [city, setCity] = useState(nodeData.city ?? "");
-  const [input, setInput] = useState(nodeData.city ?? "");
+  const [lat, setLat] = useState(nodeData.lat ?? null as number | null);
+  const [lon, setLon] = useState(nodeData.lon ?? null as number | null);
+  const [input, setInput] = useState("");
+  const [results, setResults] = useState<GeoResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevCityProp = useRef(nodeData.city ?? "");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editingNodeId = useEditingNodeId();
   const isEditing = editingNodeId === id;
 
-  const load = useCallback(async (c: string) => {
-    if (!c.trim()) return;
+  const load = useCallback(async (la: number, lo: number) => {
     setLoading(true);
     setError(null);
     try {
-      const wx = await fetchWeather(c.trim());
+      const wx = await fetchWeather(la, lo);
       setWeather(wx);
     } catch {
       setError("Could not load weather");
@@ -70,34 +108,66 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
     }
   }, []);
 
-  const go = useCallback(() => {
-    const c = input.trim();
-    setCity(c);
-    nodeData.city = c;
-    load(c);
-  }, [input, nodeData, load]);
+  const selectCity = useCallback((result: GeoResult) => {
+    const label = formatGeoLabel(result);
+    setCity(label);
+    setLat(result.latitude);
+    setLon(result.longitude);
+    nodeData.city = label;
+    nodeData.lat = result.latitude;
+    nodeData.lon = result.longitude;
+    setInput("");
+    setResults([]);
+    setDropdownOpen(false);
+    load(result.latitude, result.longitude);
+  }, [nodeData, load]);
 
   const clear = useCallback(() => {
     setCity("");
+    setLat(null);
+    setLon(null);
     setInput("");
     setWeather(null);
     setError(null);
+    setResults([]);
+    setDropdownOpen(false);
     nodeData.city = "";
+    nodeData.lat = undefined;
+    nodeData.lon = undefined;
     if (refreshTimer.current) clearInterval(refreshTimer.current);
   }, [nodeData]);
 
-  // Auto-load on mount if city set
+  // Debounced city search
+  const handleInputChange = useCallback((val: string) => {
+    setInput(val);
+    setDropdownOpen(true);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!val.trim()) {
+      setResults([]);
+      setDropdownOpen(false);
+      return;
+    }
+    setSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      const r = await searchCities(val);
+      setResults(r);
+      setSearching(false);
+      setDropdownOpen(r.length > 0);
+    }, 350);
+  }, []);
+
+  // Auto-load on mount if city + coords set
   useEffect(() => {
-    if (city) load(city);
+    if (city && lat !== null && lon !== null) load(lat, lon);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-refresh every 10 min
   useEffect(() => {
-    if (!city) return;
+    if (!city || lat === null || lon === null) return;
     if (refreshTimer.current) clearInterval(refreshTimer.current);
-    refreshTimer.current = setInterval(() => load(city), 10 * 60 * 1000);
+    refreshTimer.current = setInterval(() => load(lat, lon), 10 * 60 * 1000);
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
-  }, [city, load]);
+  }, [city, lat, lon, load]);
 
   // Sync external city reset (e.g., "Change City" from right-click context menu)
   useEffect(() => {
@@ -106,9 +176,13 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
     prevCityProp.current = newProp;
     if (newProp === "" && oldProp !== "") {
       setCity("");
+      setLat(null);
+      setLon(null);
       setInput("");
       setWeather(null);
       setError(null);
+      setResults([]);
+      setDropdownOpen(false);
       if (refreshTimer.current) clearInterval(refreshTimer.current);
     }
   }, [nodeData.city]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -116,7 +190,7 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
   return (
     <>
       <NodeResizer
-        minWidth={200}
+        minWidth={220}
         minHeight={160}
         isVisible={selected}
         lineStyle={{ borderColor: "#6366f1" }}
@@ -137,20 +211,20 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
             : selected
             ? "0 0 0 2px #6366f133"
             : "0 4px 24px #00000066",
-          minWidth: 200,
+          minWidth: 220,
           minHeight: 160,
         }}
       >
         {/* Header */}
         <div style={{ background: "#1c1c20", padding: "7px 12px", borderBottom: "1px solid #27272a", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
           <span style={{ fontSize: 13 }}>🌤</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#e4e4e7", flex: 1 }}>
-            {city ? city : "Weather"}
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#e4e4e7", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {city || "Weather"}
           </span>
           {city && (
             <button
               onClick={clear}
-              style={{ background: "none", border: "none", color: "#71717a", cursor: "pointer", fontSize: 12, padding: "0 2px" }}
+              style={{ background: "none", border: "none", color: "#71717a", cursor: "pointer", fontSize: 12, padding: "0 2px", flexShrink: 0 }}
             >
               ✕
             </button>
@@ -158,40 +232,70 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "12px 14px", gap: 10 }}>
-          {/* City input always visible */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "12px 14px", gap: 10, position: "relative" }}>
+          {/* City search input */}
           {!city && (
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ position: "relative" }}>
               <input
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") go(); }}
-                placeholder="City name..."
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape") { setDropdownOpen(false); setInput(""); } }}
+                placeholder="Search city..."
                 style={{
-                  flex: 1,
+                  width: "100%",
                   background: "#27272a",
                   border: "1px solid #3f3f46",
-                  borderRadius: 6,
+                  borderRadius: dropdownOpen && results.length > 0 ? "6px 6px 0 0" : 6,
                   outline: "none",
-                  padding: "4px 8px",
+                  padding: "5px 8px",
                   fontSize: 13,
                   color: "#e4e4e7",
+                  boxSizing: "border-box",
                 }}
               />
-              <button
-                onClick={go}
-                style={{
-                  background: "#6366f1",
-                  border: "none",
-                  borderRadius: 6,
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  padding: "4px 10px",
-                }}
-              >
-                Go
-              </button>
+              {/* Dropdown */}
+              {dropdownOpen && (
+                <div style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  background: "#27272a",
+                  border: "1px solid #3f3f46",
+                  borderTop: "none",
+                  borderRadius: "0 0 6px 6px",
+                  zIndex: 999,
+                  maxHeight: 180,
+                  overflowY: "auto",
+                }}>
+                  {searching && (
+                    <div style={{ padding: "6px 10px", color: "#71717a", fontSize: 12 }}>Searching...</div>
+                  )}
+                  {!searching && results.length === 0 && input.trim() && (
+                    <div style={{ padding: "6px 10px", color: "#71717a", fontSize: 12 }}>No results</div>
+                  )}
+                  {!searching && results.map((r) => (
+                    <div
+                      key={r.id}
+                      onMouseDown={() => selectCity(r)}
+                      style={{
+                        padding: "6px 10px",
+                        fontSize: 12,
+                        color: "#e4e4e7",
+                        cursor: "pointer",
+                        borderBottom: "1px solid #3f3f4633",
+                        lineHeight: 1.4,
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#3f3f46"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = ""; }}
+                    >
+                      <span style={{ fontWeight: 500 }}>{r.name}</span>
+                      {r.admin1 && <span style={{ color: "#a1a1aa" }}>, {r.admin1}</span>}
+                      {r.country && r.country_code !== "US" && <span style={{ color: "#71717a" }}>, {r.country}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -203,12 +307,14 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
             <div style={{ textAlign: "center" }}>
               <div style={{ color: "#f87171", fontSize: 12, marginBottom: 8 }}>{error}</div>
               <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                <button
-                  onClick={() => load(city)}
-                  style={{ background: "#27272a", border: "1px solid #3f3f46", borderRadius: 6, color: "#e4e4e7", cursor: "pointer", fontSize: 12, padding: "4px 10px" }}
-                >
-                  ↻ Retry
-                </button>
+                {lat !== null && lon !== null && (
+                  <button
+                    onClick={() => load(lat, lon)}
+                    style={{ background: "#27272a", border: "1px solid #3f3f46", borderRadius: 6, color: "#e4e4e7", cursor: "pointer", fontSize: 12, padding: "4px 10px" }}
+                  >
+                    ↻ Retry
+                  </button>
+                )}
                 <button
                   onClick={clear}
                   style={{ background: "none", border: "1px solid #3f3f46", borderRadius: 6, color: "#71717a", cursor: "pointer", fontSize: 12, padding: "4px 10px" }}
