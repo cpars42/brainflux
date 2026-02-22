@@ -30,6 +30,7 @@ import { TimerNode } from "./nodes/TimerNode";
 import { StopwatchNode } from "./nodes/StopwatchNode";
 import { HourglassNode } from "./nodes/HourglassNode";
 import { LinkNode } from "./nodes/LinkNode";
+import { ImageNode } from "./nodes/ImageNode";
 import { Toolbar, type BackgroundSetting } from "./Toolbar";
 import { Starfield } from "./Starfield";
 import { MatrixRain } from "./MatrixRain";
@@ -58,6 +59,7 @@ const NODE_TYPES: NodeTypes = {
   stopwatch: StopwatchNode,
   hourglass: HourglassNode,
   link: LinkNode,
+  image: ImageNode,
 };
 
 const DEFAULT_NODE_DATA: Record<string, object> = {
@@ -68,6 +70,7 @@ const DEFAULT_NODE_DATA: Record<string, object> = {
   stopwatch: { label: "", startTime: null, elapsedMs: 0 },
   hourglass: { durationMinutes: 10 },
   link: { url: "", title: "" },
+  image: { src: "", alt: "" },
 };
 
 const DEFAULT_NODE_SIZE: Record<string, { width?: number; height?: number }> = {
@@ -426,6 +429,41 @@ function FlowEditorInner({ canvasId, userName, background, onBackgroundChange }:
           const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
           setInboxPicker({ item, x: e.clientX, y: e.clientY, flowPos });
         } catch { /* malformed */ }
+        return;
+      }
+
+      // Image file drop from desktop
+      const files = Array.from(e.dataTransfer.files);
+      const imageFile = files.find(f => f.type.startsWith("image/"));
+      if (imageFile) {
+        const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const src = ev.target?.result as string;
+          if (!src) return;
+          const id = nanoid();
+          const img = new window.Image();
+          img.onload = () => {
+            const maxW = 480;
+            const scale = img.naturalWidth > maxW ? maxW / img.naturalWidth : 1;
+            const w = Math.round(img.naturalWidth * scale);
+            const h = Math.round(img.naturalHeight * scale) + 30; // +30 for caption
+            setNodes((nds) => {
+              const next = [...nds, {
+                id,
+                type: "image",
+                position,
+                width: w,
+                height: h,
+                data: { src, alt: imageFile.name.replace(/\.[^.]+$/, "") },
+              }];
+              scheduleSave(next, edges);
+              return next;
+            });
+          };
+          img.src = src;
+        };
+        reader.readAsDataURL(imageFile);
         return;
       }
 
