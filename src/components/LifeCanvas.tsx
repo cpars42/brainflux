@@ -27,6 +27,7 @@ import { NoteNode } from "./nodes/NoteNode";
 import { StickyNode } from "./nodes/StickyNode";
 import { ClockNode } from "./nodes/ClockNode";
 import { TimerNode } from "./nodes/TimerNode";
+import { StopwatchNode } from "./nodes/StopwatchNode";
 import { HourglassNode } from "./nodes/HourglassNode";
 import { LinkNode } from "./nodes/LinkNode";
 import { Toolbar, type BackgroundSetting } from "./Toolbar";
@@ -54,6 +55,7 @@ const NODE_TYPES: NodeTypes = {
   sticky: StickyNode,
   clock: ClockNode,
   timer: TimerNode,
+  stopwatch: StopwatchNode,
   hourglass: HourglassNode,
   link: LinkNode,
 };
@@ -63,6 +65,7 @@ const DEFAULT_NODE_DATA: Record<string, object> = {
   sticky: { content: "", color: "#fef08a" },
   clock: {},
   timer: { label: "", durationMinutes: 25 },
+  stopwatch: { label: "", startTime: null, elapsedMs: 0 },
   hourglass: { durationMinutes: 10 },
   link: { url: "", title: "" },
 };

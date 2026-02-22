@@ -16,6 +16,7 @@ const TOOLS = [
   { type: "sticky", icon: "🟡", label: "Sticky" },
   { type: "clock", icon: "🕐", label: "Clock" },
   { type: "timer", icon: "⏱", label: "Timer" },
+  { type: "stopwatch", icon: "⏱️", label: "Stopwatch" },
   { type: "hourglass", icon: "⌛", label: "Hourglass" },
 ];
 
