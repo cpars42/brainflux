@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position, NodeResizer, type NodeProps } from "@xyflow/react";
 import { useTriggerSave } from "../LifeCanvas";
 
 export type StopwatchData = {
@@ -92,6 +92,13 @@ export function StopwatchNode({ data, selected }: NodeProps) {
       <Handle id="bottom" type="source" position={Position.Bottom} />
       <Handle id="left"   type="source" position={Position.Left} />
       <Handle id="right"  type="source" position={Position.Right} />
+      <NodeResizer
+        isVisible={selected}
+        minWidth={180}
+        minHeight={160}
+        handleStyle={{ background: "#6366f1", border: "none", width: 10, height: 10 }}
+        lineStyle={{ borderColor: selected ? "#6366f1" : "transparent" }}
+      />
       <div
         style={{
           background: "#18181b",
@@ -101,6 +108,7 @@ export function StopwatchNode({ data, selected }: NodeProps) {
           textAlign: "center",
           boxShadow: "0 4px 24px #00000066",
           minWidth: 180,
+          minHeight: 160,
           height: "100%",
           boxSizing: "border-box",
           display: "flex",
@@ -116,8 +124,9 @@ export function StopwatchNode({ data, selected }: NodeProps) {
           style={{ color: "#71717a" }}
         />
 
-        {/* Time display — no ring, just clean digits */}
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2, marginBottom: 16 }}>
+        {/* Time display — grows to fill available space, centered */}
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2 }}>
           <span style={{
             fontSize: 36,
             fontWeight: 200,
@@ -141,9 +150,10 @@ export function StopwatchNode({ data, selected }: NodeProps) {
             .{cs}
           </span>
         </div>
+        </div>
 
-        {/* Controls — pinned to bottom */}
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: "auto" }}>
+        {/* Controls — always at bottom */}
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 12, flexShrink: 0 }}>
           <button
             onClick={running ? pause : start}
             style={{
