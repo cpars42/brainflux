@@ -3,8 +3,21 @@
 import { useState, useCallback } from "react";
 import { Handle, Position, NodeResizer, type NodeProps } from "@xyflow/react";
 import { useEditingNodeId } from "../LifeCanvas";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
-const LANGUAGES = ["js", "ts", "python", "bash", "json", "html", "css", "sql", "rust", "go"];
+const LANGUAGES = [
+  { id: "js",     label: "JavaScript", prism: "javascript" },
+  { id: "ts",     label: "TypeScript", prism: "typescript" },
+  { id: "python", label: "Python",     prism: "python" },
+  { id: "bash",   label: "Bash",       prism: "bash" },
+  { id: "json",   label: "JSON",       prism: "json" },
+  { id: "html",   label: "HTML",       prism: "html" },
+  { id: "css",    label: "CSS",        prism: "css" },
+  { id: "sql",    label: "SQL",        prism: "sql" },
+  { id: "rust",   label: "Rust",       prism: "rust" },
+  { id: "go",     label: "Go",         prism: "go" },
+];
 
 export type CodeData = {
   title?: string;
@@ -24,6 +37,8 @@ export function CodeNode({ id, data, selected }: NodeProps) {
     setCode(val);
     nodeData.code = val;
   }, [nodeData]);
+
+  const langDef = LANGUAGES.find((l) => l.id === language) ?? LANGUAGES[0];
 
   return (
     <>
@@ -88,34 +103,59 @@ export function CodeNode({ id, data, selected }: NodeProps) {
             }}
           >
             {LANGUAGES.map((l) => (
-              <option key={l} value={l}>{l}</option>
+              <option key={l.id} value={l.id}>{l.label}</option>
             ))}
           </select>
         </div>
 
         {/* Code Area */}
-        <textarea
-          value={code}
-          onChange={(e) => updateCode(e.target.value)}
-          placeholder={isEditing ? "// Write your code here..." : "Double-click to edit"}
-          spellCheck={false}
-          style={{
-            flex: 1,
-            width: "100%",
-            background: "transparent",
-            border: "none",
-            outline: "none",
-            resize: "none",
-            padding: "12px",
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 13,
-            color: "#e6edf3",
-            lineHeight: 1.6,
-            pointerEvents: isEditing ? "auto" : "none",
-            userSelect: isEditing ? "auto" : "none",
-            cursor: isEditing ? "text" : "default",
-          }}
-        />
+        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+          {isEditing ? (
+            /* Edit mode: plain textarea */
+            <textarea
+              value={code}
+              onChange={(e) => updateCode(e.target.value)}
+              autoFocus
+              spellCheck={false}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                resize: "none",
+                padding: "12px",
+                fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+                fontSize: 13,
+                color: "#e6edf3",
+                lineHeight: 1.6,
+                zIndex: 2,
+              }}
+            />
+          ) : (
+            /* View mode: syntax-highlighted */
+            <div style={{ position: "absolute", inset: 0, overflow: "auto" }}>
+              <SyntaxHighlighter
+                language={langDef.prism}
+                style={vscDarkPlus}
+                customStyle={{
+                  margin: 0,
+                  padding: "12px",
+                  background: "transparent",
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+                  minHeight: "100%",
+                }}
+                codeTagProps={{ style: { fontFamily: "inherit" } }}
+              >
+                {code || "// Double-click to edit"}
+              </SyntaxHighlighter>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
