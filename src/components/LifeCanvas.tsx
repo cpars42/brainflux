@@ -31,6 +31,15 @@ import { StopwatchNode } from "./nodes/StopwatchNode";
 import { HourglassNode } from "./nodes/HourglassNode";
 import { LinkNode } from "./nodes/LinkNode";
 import { ImageNode } from "./nodes/ImageNode";
+import { ChecklistNode } from "./nodes/ChecklistNode";
+import { CodeNode } from "./nodes/CodeNode";
+import { EmbedNode } from "./nodes/EmbedNode";
+import { MarkdownNode } from "./nodes/MarkdownNode";
+import { DrawingNode } from "./nodes/DrawingNode";
+import { CounterNode } from "./nodes/CounterNode";
+import { WeatherNode } from "./nodes/WeatherNode";
+import { CalendarNode } from "./nodes/CalendarNode";
+import { AIChatNode } from "./nodes/AIChatNode";
 import { Toolbar, type BackgroundSetting } from "./Toolbar";
 import { Starfield } from "./Starfield";
 import { MatrixRain } from "./MatrixRain";
@@ -60,6 +69,15 @@ const NODE_TYPES: NodeTypes = {
   hourglass: HourglassNode,
   link: LinkNode,
   image: ImageNode,
+  checklist: ChecklistNode,
+  code: CodeNode,
+  embed: EmbedNode,
+  markdown: MarkdownNode,
+  drawing: DrawingNode,
+  counter: CounterNode,
+  weather: WeatherNode,
+  calendar: CalendarNode,
+  aichat: AIChatNode,
 };
 
 const DEFAULT_NODE_DATA: Record<string, object> = {
@@ -70,7 +88,16 @@ const DEFAULT_NODE_DATA: Record<string, object> = {
   stopwatch: { label: "", startTime: null, elapsedMs: 0 },
   hourglass: { durationMinutes: 10 },
   link: { url: "", title: "" },
-  image: { src: "", alt: "" },
+  image: { imageData: "", alt: "" },
+  checklist: { title: "", items: [] },
+  code: { title: "", language: "js", code: "" },
+  embed: { url: "" },
+  markdown: { title: "", content: "" },
+  drawing: { imageData: "" },
+  counter: { label: "Counter", count: 0, step: 1 },
+  weather: { city: "" },
+  calendar: { notes: {}, selectedDate: "" },
+  aichat: { messages: [] },
 };
 
 const DEFAULT_NODE_SIZE: Record<string, { width?: number; height?: number }> = {
@@ -79,6 +106,16 @@ const DEFAULT_NODE_SIZE: Record<string, { width?: number; height?: number }> = {
   clock: {},
   timer: {},
   hourglass: {},
+  image: { width: 300, height: 250 },
+  checklist: { width: 260, height: 220 },
+  code: { width: 320, height: 240 },
+  embed: { width: 400, height: 300 },
+  markdown: { width: 300, height: 240 },
+  drawing: { width: 320, height: 280 },
+  counter: { width: 200, height: 160 },
+  weather: { width: 240, height: 180 },
+  calendar: { width: 280, height: 260 },
+  aichat: { width: 320, height: 300 },
 };
 
 function toFlowNode(n: {
@@ -420,6 +457,31 @@ function FlowEditorInner({ canvasId, userName, background, onBackgroundChange }:
   const onDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
+
+      // Image file drop → create ImageNode
+      const imageFile = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+      if (imageFile) {
+        const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const imageData = ev.target?.result as string;
+          const id = nanoid();
+          const newNode: Node = {
+            id,
+            type: "image",
+            position,
+            data: { imageData, alt: imageFile.name },
+            style: { width: 300, height: 250 },
+          };
+          setNodes((nds) => {
+            const next = [...nds, newNode];
+            scheduleSave(next, edges);
+            return next;
+          });
+        };
+        reader.readAsDataURL(imageFile);
+        return;
+      }
 
       // Inbox item drop → show type picker
       const inboxRaw = e.dataTransfer.getData("application/brainflux-inbox");

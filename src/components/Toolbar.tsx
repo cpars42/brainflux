@@ -18,6 +18,16 @@ const TOOLS = [
   { type: "timer", icon: "⏱", label: "Timer" },
   { type: "stopwatch", icon: "⏱️", label: "Stopwatch" },
   { type: "hourglass", icon: "⌛", label: "Hourglass" },
+  { type: "image", icon: "🖼️", label: "Image" },
+  { type: "checklist", icon: "✅", label: "Checklist" },
+  { type: "code", icon: "💻", label: "Code" },
+  { type: "embed", icon: "🌐", label: "Embed" },
+  { type: "markdown", icon: "📄", label: "Markdown" },
+  { type: "drawing", icon: "✏️", label: "Drawing" },
+  { type: "counter", icon: "🔢", label: "Counter" },
+  { type: "weather", icon: "🌤", label: "Weather" },
+  { type: "calendar", icon: "📅", label: "Calendar" },
+  { type: "aichat", icon: "🤖", label: "AI Chat" },
 ];
 
 export function Toolbar({ onAdd, onVoiceNote, background, onBackgroundChange }: Props) {
