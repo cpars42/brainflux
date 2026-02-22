@@ -458,31 +458,6 @@ function FlowEditorInner({ canvasId, userName, background, onBackgroundChange }:
     async (e: React.DragEvent) => {
       e.preventDefault();
 
-      // Image file drop → create ImageNode
-      const imageFile = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
-      if (imageFile) {
-        const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const imageData = ev.target?.result as string;
-          const id = nanoid();
-          const newNode: Node = {
-            id,
-            type: "image",
-            position,
-            data: { imageData, alt: imageFile.name },
-            style: { width: 300, height: 250 },
-          };
-          setNodes((nds) => {
-            const next = [...nds, newNode];
-            scheduleSave(next, edges);
-            return next;
-          });
-        };
-        reader.readAsDataURL(imageFile);
-        return;
-      }
-
       // Inbox item drop → show type picker
       const inboxRaw = e.dataTransfer.getData("application/brainflux-inbox");
       if (inboxRaw) {
