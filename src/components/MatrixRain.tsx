@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 const CHARS =
   "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const FONT_SIZE = 16;
-const FADE_RATE = 0.07; // per-frame brightness decay — higher = shorter, snappier trails
+const FADE_RATE = 0.03; // per-frame brightness decay — lower = longer, slower-fading trails
 
 interface Column {
   x: number;
@@ -45,7 +45,7 @@ export function MatrixRain() {
         columns.push({
           x: i * FONT_SIZE,
           y: Math.random() * canvas!.height,
-          speed: 3 + Math.random() * 4, // classic Matrix movie speed
+          speed: 1.5 + Math.random() * 2, // slow, cinematic Matrix movie speed
         });
         grid[i] = Array.from({ length: rowCount }, () => ({
           char: CHARS[Math.floor(Math.random() * CHARS.length)],
@@ -77,7 +77,7 @@ export function MatrixRain() {
         // Reset column when it scrolls off-screen
         if (col.y > canvas!.height && Math.random() > 0.975) {
           col.y = 0;
-          col.speed = 3 + Math.random() * 4;
+          col.speed = 1.5 + Math.random() * 2;
         }
 
         // Draw all visible cells and decay non-head brightness
@@ -89,9 +89,9 @@ export function MatrixRain() {
 
           if (isHead) {
             // Dim white-green head — subtle, atmospheric Matrix look
-            ctx!.fillStyle = `rgba(120, 255, 120, ${cell.brightness * 0.42})`;
+            ctx!.fillStyle = `rgba(120, 255, 120, ${cell.brightness * 0.22})`;
           } else {
-            ctx!.fillStyle = `rgba(0, 185, 50, ${cell.brightness * 0.35})`;
+            ctx!.fillStyle = `rgba(0, 185, 50, ${cell.brightness * 0.18})`;
           }
 
           ctx!.fillText(cell.char, col.x, (ri + 1) * FONT_SIZE);
