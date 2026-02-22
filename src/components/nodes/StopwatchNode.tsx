@@ -101,6 +101,10 @@ export function StopwatchNode({ data, selected }: NodeProps) {
           textAlign: "center",
           boxShadow: "0 4px 24px #00000066",
           minWidth: 180,
+          height: "100%",
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
           transition: "border-color 0.3s",
         }}
       >
@@ -138,8 +142,8 @@ export function StopwatchNode({ data, selected }: NodeProps) {
           </span>
         </div>
 
-        {/* Controls */}
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+        {/* Controls — pinned to bottom */}
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: "auto" }}>
           <button
             onClick={running ? pause : start}
             style={{
