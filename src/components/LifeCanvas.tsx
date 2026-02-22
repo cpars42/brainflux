@@ -411,7 +411,7 @@ function FlowEditorInner({ canvasId, userName, background, onBackgroundChange }:
   // Drag URL from browser → LinkNode | Drag inbox item → type picker
   const onDragOver = useCallback((e: React.DragEvent) => {
     const types = e.dataTransfer.types;
-    if (types.includes("application/brainflux-inbox") || types.includes("text/uri-list") || types.includes("text/plain")) {
+    if (types.includes("application/brainflux-inbox") || types.includes("text/uri-list") || types.includes("text/plain") || types.includes("Files")) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
     }
