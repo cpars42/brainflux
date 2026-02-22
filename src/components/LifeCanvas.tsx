@@ -29,8 +29,9 @@ import { ClockNode } from "./nodes/ClockNode";
 import { TimerNode } from "./nodes/TimerNode";
 import { HourglassNode } from "./nodes/HourglassNode";
 import { LinkNode } from "./nodes/LinkNode";
-import { Toolbar } from "./Toolbar";
+import { Toolbar, type BackgroundSetting } from "./Toolbar";
 import { Starfield } from "./Starfield";
+import { MatrixRain } from "./MatrixRain";
 
 const EDGE_TYPES: EdgeTypes = {
   default: FlowingEdge,
@@ -195,7 +196,7 @@ function MenuItem({
 
 // ─── Inner Flow Editor (needs useReactFlow — must be inside ReactFlowProvider) ─
 
-function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: string }) {
+function FlowEditorInner({ canvasId, userName, background, onBackgroundChange }: { canvasId: string; userName: string; background: BackgroundSetting; onBackgroundChange: (bg: BackgroundSetting) => void }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loaded, setLoaded] = useState(false);
@@ -619,7 +620,7 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
         />
       </ReactFlow>
 
-      <Toolbar onAdd={addNode} onVoiceNote={addVoiceNoteNode} />
+      <Toolbar onAdd={addNode} onVoiceNote={addVoiceNoteNode} background={background} onBackgroundChange={onBackgroundChange} />
 
       <InboxTray onDragStart={() => {}} />
 
@@ -707,11 +708,21 @@ function FlowEditorInner({ canvasId, userName }: { canvasId: string; userName: s
 // ─── Public export — wraps inner editor in ReactFlowProvider ─────────────────
 
 export function LifeCanvas({ canvasId, userName }: { canvasId: string; userName: string }) {
+  const [background, setBackground] = useState<BackgroundSetting>(
+    () => (typeof window !== "undefined" ? localStorage.getItem("brainflux-bg") as BackgroundSetting : null) || "stars"
+  );
+
+  const onBackgroundChange = useCallback((bg: BackgroundSetting) => {
+    setBackground(bg);
+    localStorage.setItem("brainflux-bg", bg);
+  }, []);
+
   return (
     <>
-      <Starfield />
+      {background === "stars" && <Starfield />}
+      {background === "matrix" && <MatrixRain />}
       <ReactFlowProvider>
-        <FlowEditorInner canvasId={canvasId} userName={userName} />
+        <FlowEditorInner canvasId={canvasId} userName={userName} background={background} onBackgroundChange={onBackgroundChange} />
       </ReactFlowProvider>
     </>
   );
