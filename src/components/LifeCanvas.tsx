@@ -34,7 +34,6 @@ import { ImageNode } from "./nodes/ImageNode";
 import { ChecklistNode } from "./nodes/ChecklistNode";
 import { CodeNode } from "./nodes/CodeNode";
 import { EmbedNode } from "./nodes/EmbedNode";
-import { MarkdownNode } from "./nodes/MarkdownNode";
 import { DrawingNode } from "./nodes/DrawingNode";
 import { CounterNode } from "./nodes/CounterNode";
 import { WeatherNode } from "./nodes/WeatherNode";
@@ -71,7 +70,6 @@ const NODE_TYPES: NodeTypes = {
   checklist: ChecklistNode,
   code: CodeNode,
   embed: EmbedNode,
-  markdown: MarkdownNode,
   drawing: DrawingNode,
   counter: CounterNode,
   weather: WeatherNode,
@@ -90,7 +88,6 @@ const DEFAULT_NODE_DATA: Record<string, object> = {
   checklist: { title: "", items: [] },
   code: { title: "", language: "js", code: "" },
   embed: { url: "" },
-  markdown: { title: "", content: "" },
   drawing: { imageData: "" },
   counter: { label: "Counter", count: 0, step: 1 },
   weather: { city: "" },
@@ -107,7 +104,6 @@ const DEFAULT_NODE_SIZE: Record<string, { width?: number; height?: number }> = {
   checklist: { width: 260, height: 220 },
   code: { width: 320, height: 240 },
   embed: { width: 400, height: 300 },
-  markdown: { width: 300, height: 240 },
   drawing: { width: 320, height: 280 },
   counter: { width: 200, height: 160 },
   weather: { width: 240, height: 180 },
