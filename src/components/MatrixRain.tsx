@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 const CHARS =
   "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const FONT_SIZE = 16;
-const FADE_RATE = 0.06; // per-frame brightness decay — higher = shorter, snappier trails
+const FADE_RATE = 0.07; // per-frame brightness decay — higher = shorter, snappier trails
 
 interface Column {
   x: number;
@@ -88,10 +88,10 @@ export function MatrixRain() {
           const isHead = ri === headRow;
 
           if (isHead) {
-            // Bright white-green head — classic Matrix look
-            ctx!.fillStyle = `rgba(175, 255, 175, ${cell.brightness})`;
+            // Dim white-green head — subtle, atmospheric Matrix look
+            ctx!.fillStyle = `rgba(120, 255, 120, ${cell.brightness * 0.42})`;
           } else {
-            ctx!.fillStyle = `rgba(0, 255, 0, ${cell.brightness * 0.9})`;
+            ctx!.fillStyle = `rgba(0, 185, 50, ${cell.brightness * 0.35})`;
           }
 
           ctx!.fillText(cell.char, col.x, (ri + 1) * FONT_SIZE);
