@@ -2,22 +2,39 @@
 
 import { useState, useCallback } from "react";
 import { Handle, Position, NodeResizer, type NodeProps } from "@xyflow/react";
-import { useEditingNodeId } from "../LifeCanvas";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+// @ts-ignore — react-syntax-highlighter ships its own types
+import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism";
+// @ts-ignore
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useEditingNodeId } from "../LifeCanvas";
 
-const LANGUAGES = [
-  { id: "js",     label: "JavaScript", prism: "javascript" },
-  { id: "ts",     label: "TypeScript", prism: "typescript" },
-  { id: "python", label: "Python",     prism: "python" },
-  { id: "bash",   label: "Bash",       prism: "bash" },
-  { id: "json",   label: "JSON",       prism: "json" },
-  { id: "html",   label: "HTML",       prism: "html" },
-  { id: "css",    label: "CSS",        prism: "css" },
-  { id: "sql",    label: "SQL",        prism: "sql" },
-  { id: "rust",   label: "Rust",       prism: "rust" },
-  { id: "go",     label: "Go",         prism: "go" },
+const LANGUAGES: { value: string; label: string }[] = [
+  { value: "javascript", label: "JS" },
+  { value: "typescript", label: "TS" },
+  { value: "python",     label: "Python" },
+  { value: "bash",       label: "Bash" },
+  { value: "json",       label: "JSON" },
+  { value: "html",       label: "HTML" },
+  { value: "css",        label: "CSS" },
+  { value: "sql",        label: "SQL" },
+  { value: "rust",       label: "Rust" },
+  { value: "go",         label: "Go" },
+  { value: "java",       label: "Java" },
+  { value: "cpp",        label: "C++" },
+  { value: "yaml",       label: "YAML" },
+  { value: "markdown",   label: "Markdown" },
 ];
+
+/** Legacy short names (from nodes saved before this update) → full names */
+const LANG_ALIAS: Record<string, string> = {
+  js: "javascript",
+  ts: "typescript",
+};
+
+function normalizeLang(lang: string | undefined): string {
+  const l = (lang ?? "javascript").toLowerCase();
+  return LANG_ALIAS[l] ?? l;
+}
 
 export type CodeData = {
   title?: string;
@@ -28,17 +45,30 @@ export type CodeData = {
 export function CodeNode({ id, data, selected }: NodeProps) {
   const nodeData = data as CodeData;
   const [title, setTitle] = useState(nodeData.title ?? "");
-  const [language, setLanguage] = useState(nodeData.language ?? "js");
+  const [language, setLanguage] = useState(normalizeLang(nodeData.language));
   const [code, setCode] = useState(nodeData.code ?? "");
   const editingNodeId = useEditingNodeId();
   const isEditing = editingNodeId === id;
 
-  const updateCode = useCallback((val: string) => {
-    setCode(val);
-    nodeData.code = val;
-  }, [nodeData]);
+  const updateCode = useCallback(
+    (val: string) => {
+      setCode(val);
+      nodeData.code = val;
+    },
+    [nodeData]
+  );
 
-  const langDef = LANGUAGES.find((l) => l.id === language) ?? LANGUAGES[0];
+  const handleLanguageChange = (val: string) => {
+    setLanguage(val);
+    nodeData.language = val;
+  };
+
+  const borderColor = isEditing ? "#eab308" : selected ? "#6366f1" : "#27272a";
+  const boxShadow = isEditing
+    ? "0 0 0 2px #eab30833"
+    : selected
+    ? "0 0 0 2px #6366f133"
+    : "0 4px 24px #00000066";
 
   return (
     <>
@@ -49,31 +79,40 @@ export function CodeNode({ id, data, selected }: NodeProps) {
         lineStyle={{ borderColor: "#6366f1" }}
         handleStyle={{ backgroundColor: "#6366f1", border: "none" }}
       />
-      <Handle id="top" type="source" position={Position.Top} />
+      <Handle id="top"    type="source" position={Position.Top} />
       <Handle id="bottom" type="source" position={Position.Bottom} />
-      <Handle id="left" type="source" position={Position.Left} />
-      <Handle id="right" type="source" position={Position.Right} />
+      <Handle id="left"   type="source" position={Position.Left} />
+      <Handle id="right"  type="source" position={Position.Right} />
 
       <div
         className="h-full flex flex-col rounded-xl overflow-hidden"
         style={{
           background: "#0d1117",
-          border: `1.5px solid ${isEditing ? "#eab308" : selected ? "#6366f1" : "#27272a"}`,
-          boxShadow: isEditing
-            ? "0 0 0 2px #eab30833"
-            : selected
-            ? "0 0 0 2px #6366f133"
-            : "0 4px 24px #00000066",
+          border: `1.5px solid ${borderColor}`,
+          boxShadow,
           minWidth: 260,
           minHeight: 180,
         }}
       >
         {/* Header */}
-        <div style={{ background: "#161b22", padding: "7px 12px", borderBottom: "1px solid #30363d", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <div
+          style={{
+            background: "#161b22",
+            padding: "7px 12px",
+            borderBottom: "1px solid #30363d",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
           <span style={{ fontSize: 14 }}>💻</span>
           <input
             value={title}
-            onChange={(e) => { setTitle(e.target.value); nodeData.title = e.target.value; }}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              nodeData.title = e.target.value;
+            }}
             placeholder="Code snippet..."
             style={{
               flex: 1,
@@ -89,7 +128,7 @@ export function CodeNode({ id, data, selected }: NodeProps) {
           />
           <select
             value={language}
-            onChange={(e) => { setLanguage(e.target.value); nodeData.language = e.target.value; }}
+            onChange={(e) => handleLanguageChange(e.target.value)}
             style={{
               background: "#21262d",
               border: "1px solid #30363d",
@@ -103,23 +142,24 @@ export function CodeNode({ id, data, selected }: NodeProps) {
             }}
           >
             {LANGUAGES.map((l) => (
-              <option key={l.id} value={l.id}>{l.label}</option>
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
             ))}
           </select>
         </div>
 
         {/* Code Area */}
-        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
           {isEditing ? (
             /* Edit mode: plain textarea */
             <textarea
               value={code}
               onChange={(e) => updateCode(e.target.value)}
-              autoFocus
+              placeholder="// Write your code here..."
               spellCheck={false}
+              autoFocus
               style={{
-                position: "absolute",
-                inset: 0,
                 width: "100%",
                 height: "100%",
                 background: "transparent",
@@ -127,33 +167,33 @@ export function CodeNode({ id, data, selected }: NodeProps) {
                 outline: "none",
                 resize: "none",
                 padding: "12px",
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+                fontFamily: "'Courier New', Courier, monospace",
                 fontSize: 13,
                 color: "#e6edf3",
                 lineHeight: 1.6,
-                zIndex: 2,
+                boxSizing: "border-box",
               }}
             />
           ) : (
             /* View mode: syntax-highlighted */
-            <div style={{ position: "absolute", inset: 0, overflow: "auto" }}>
-              <SyntaxHighlighter
-                language={langDef.prism}
-                style={vscDarkPlus}
-                customStyle={{
-                  margin: 0,
-                  padding: "12px",
-                  background: "transparent",
-                  fontSize: 13,
-                  lineHeight: 1.6,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
-                  minHeight: "100%",
-                }}
-                codeTagProps={{ style: { fontFamily: "inherit" } }}
-              >
-                {code || "// Double-click to edit"}
-              </SyntaxHighlighter>
-            </div>
+            <SyntaxHighlighter
+              language={language}
+              style={vscDarkPlus}
+              customStyle={{
+                margin: 0,
+                padding: "12px",
+                background: "transparent",
+                fontSize: 13,
+                lineHeight: 1.6,
+                minHeight: "100%",
+                fontFamily: "'Courier New', Courier, monospace",
+              }}
+              showLineNumbers={code.split("\n").length > 4}
+              lineNumberStyle={{ color: "#3d4450", fontSize: 11 }}
+              wrapLongLines={false}
+            >
+              {code || "// Double-click to edit"}
+            </SyntaxHighlighter>
           )}
         </div>
       </div>
