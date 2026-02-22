@@ -39,7 +39,13 @@ export function DrawingNode({ id, data, selected }: NodeProps) {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    // Scale CSS pixel coords to canvas internal pixel coords
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
   };
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {

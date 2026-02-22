@@ -39,7 +39,6 @@ import { DrawingNode } from "./nodes/DrawingNode";
 import { CounterNode } from "./nodes/CounterNode";
 import { WeatherNode } from "./nodes/WeatherNode";
 import { CalendarNode } from "./nodes/CalendarNode";
-import { AIChatNode } from "./nodes/AIChatNode";
 import { Toolbar, type BackgroundSetting } from "./Toolbar";
 import { Starfield } from "./Starfield";
 import { MatrixRain } from "./MatrixRain";
@@ -77,7 +76,6 @@ const NODE_TYPES: NodeTypes = {
   counter: CounterNode,
   weather: WeatherNode,
   calendar: CalendarNode,
-  aichat: AIChatNode,
 };
 
 const DEFAULT_NODE_DATA: Record<string, object> = {
@@ -97,7 +95,6 @@ const DEFAULT_NODE_DATA: Record<string, object> = {
   counter: { label: "Counter", count: 0, step: 1 },
   weather: { city: "" },
   calendar: { notes: {}, selectedDate: "" },
-  aichat: { messages: [] },
 };
 
 const DEFAULT_NODE_SIZE: Record<string, { width?: number; height?: number }> = {
@@ -115,7 +112,6 @@ const DEFAULT_NODE_SIZE: Record<string, { width?: number; height?: number }> = {
   counter: { width: 200, height: 160 },
   weather: { width: 240, height: 180 },
   calendar: { width: 280, height: 260 },
-  aichat: { width: 320, height: 300 },
 };
 
 function toFlowNode(n: {

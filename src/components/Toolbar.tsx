@@ -27,7 +27,6 @@ const TOOLS = [
   { type: "counter", icon: "🔢", label: "Counter" },
   { type: "weather", icon: "🌤", label: "Weather" },
   { type: "calendar", icon: "📅", label: "Calendar" },
-  { type: "aichat", icon: "🤖", label: "AI Chat" },
 ];
 
 export function Toolbar({ onAdd, onVoiceNote, background, onBackgroundChange }: Props) {

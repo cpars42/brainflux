@@ -183,7 +183,23 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
           )}
 
           {error && (
-            <div style={{ textAlign: "center", color: "#f87171", fontSize: 12 }}>{error}</div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ color: "#f87171", fontSize: 12, marginBottom: 8 }}>{error}</div>
+              <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                <button
+                  onClick={() => load(city)}
+                  style={{ background: "#27272a", border: "1px solid #3f3f46", borderRadius: 6, color: "#e4e4e7", cursor: "pointer", fontSize: 12, padding: "4px 10px" }}
+                >
+                  ↻ Retry
+                </button>
+                <button
+                  onClick={clear}
+                  style={{ background: "none", border: "1px solid #3f3f46", borderRadius: 6, color: "#71717a", cursor: "pointer", fontSize: 12, padding: "4px 10px" }}
+                >
+                  Change city
+                </button>
+              </div>
+            </div>
           )}
 
           {weather && !loading && (
