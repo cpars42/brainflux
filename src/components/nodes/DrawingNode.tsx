@@ -38,13 +38,13 @@ export function DrawingNode({ id, data, selected }: NodeProps) {
   const getPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    // Scale CSS pixel coords to canvas internal pixel coords
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    // Use offsetX/offsetY (local CSS coordinate space) + offsetWidth/Height (CSS size before transforms).
+    // This is immune to React Flow viewport zoom/pan transforms, unlike getBoundingClientRect().
+    const scaleX = canvas.width / (canvas.offsetWidth || canvas.width);
+    const scaleY = canvas.height / (canvas.offsetHeight || canvas.height);
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: e.nativeEvent.offsetX * scaleX,
+      y: e.nativeEvent.offsetY * scaleY,
     };
   };
 
