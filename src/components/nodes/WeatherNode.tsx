@@ -52,6 +52,7 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevCityProp = useRef(nodeData.city ?? "");
   const editingNodeId = useEditingNodeId();
   const isEditing = editingNodeId === id;
 
@@ -98,6 +99,20 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
   }, [city, load]);
 
+  // Sync external city reset (e.g., "Change City" from right-click context menu)
+  useEffect(() => {
+    const newProp = nodeData.city ?? "";
+    const oldProp = prevCityProp.current;
+    prevCityProp.current = newProp;
+    if (newProp === "" && oldProp !== "") {
+      setCity("");
+      setInput("");
+      setWeather(null);
+      setError(null);
+      if (refreshTimer.current) clearInterval(refreshTimer.current);
+    }
+  }, [nodeData.city]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
       <NodeResizer
@@ -129,7 +144,9 @@ export function WeatherNode({ id, data, selected }: NodeProps) {
         {/* Header */}
         <div style={{ background: "#1c1c20", padding: "7px 12px", borderBottom: "1px solid #27272a", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
           <span style={{ fontSize: 13 }}>🌤</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#e4e4e7", flex: 1 }}>Weather</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#e4e4e7", flex: 1 }}>
+            {city ? city : "Weather"}
+          </span>
           {city && (
             <button
               onClick={clear}

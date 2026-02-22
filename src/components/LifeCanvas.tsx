@@ -131,7 +131,7 @@ function toFlowNode(n: {
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
 
-type ContextMenuState = { x: number; y: number; nodeId: string; url?: string };
+type ContextMenuState = { x: number; y: number; nodeId: string; url?: string; nodeType?: string; onChangeCity?: () => void };
 
 function ContextMenu({
   menu,
@@ -152,7 +152,8 @@ function ContextMenu({
 
   // Clamp to viewport
   const menuW = 180;
-  const menuH = menu.url ? 112 : 56;
+  const extraItems = (menu.url ? 1 : 0) + (menu.onChangeCity ? 1 : 0);
+  const menuH = 56 + extraItems * 36;
   const left = Math.min(menu.x, window.innerWidth - menuW - 8);
   const top = Math.min(menu.y, window.innerHeight - menuH - 8);
 
@@ -179,6 +180,15 @@ function ContextMenu({
           color="#a5b4fc"
           hoverBg="#1e1b4b"
           onClick={() => { window.open(menu.url, "_blank", "noopener,noreferrer"); onClose(); }}
+        />
+      )}
+      {menu.onChangeCity && (
+        <MenuItem
+          icon="📍"
+          label="Change city"
+          color="#6ee7b7"
+          hoverBg="#052e16"
+          onClick={() => { menu.onChangeCity!(); onClose(); }}
         />
       )}
       <MenuItem
@@ -631,8 +641,13 @@ function FlowEditorInner({ canvasId, userName, background, onBackgroundChange }:
   const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
     e.preventDefault();
     const url = node.type === "link" ? (node.data as { url?: string }).url : undefined;
-    setContextMenu({ x: e.clientX, y: e.clientY, nodeId: node.id, url });
-  }, []);
+    const onChangeCity = node.type === "weather" ? () => {
+      setNodes((nds) => nds.map((n) =>
+        n.id === node.id ? { ...n, data: { ...n.data, city: "" } } : n
+      ));
+    } : undefined;
+    setContextMenu({ x: e.clientX, y: e.clientY, nodeId: node.id, url, nodeType: node.type, onChangeCity });
+  }, [setNodes]);
 
   const deleteNode = useCallback(
     (nodeId: string) => {
