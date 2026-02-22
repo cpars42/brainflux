@@ -12,13 +12,23 @@ export type StopwatchData = {
 
 function formatTime(ms: number) {
   const totalSecs = Math.floor(ms / 1000);
+  const cs = Math.floor((ms % 1000) / 10); // centiseconds (0–99)
   const h = Math.floor(totalSecs / 3600);
   const m = Math.floor((totalSecs % 3600) / 60);
   const s = totalSecs % 60;
+  const csStr = cs.toString().padStart(2, "0");
+  const sStr = s.toString().padStart(2, "0");
+  const mStr = m.toString().padStart(2, "0");
   if (h > 0) {
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    return {
+      main: `${h}:${mStr}:${sStr}`,
+      cs: csStr,
+    };
   }
-  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return {
+    main: `${mStr}:${sStr}`,
+    cs: csStr,
+  };
 }
 
 export function StopwatchNode({ data, selected }: NodeProps) {
@@ -39,12 +49,12 @@ export function StopwatchNode({ data, selected }: NodeProps) {
   const [label, setLabel] = useState(nodeData.label ?? "");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Tick every 100ms for smooth display
+  // Tick every 50ms for smooth centisecond display
   useEffect(() => {
     if (running && nodeData.startTime) {
       intervalRef.current = setInterval(() => {
         setElapsed((nodeData.elapsedMs ?? 0) + Math.max(0, Date.now() - nodeData.startTime!));
-      }, 100);
+      }, 50);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
     }
@@ -52,9 +62,7 @@ export function StopwatchNode({ data, selected }: NodeProps) {
   }, [running, nodeData]);
 
   const start = useCallback(() => {
-    const now = Date.now();
-    nodeData.startTime = now;
-    // elapsedMs stays as-is (accumulated before this run)
+    nodeData.startTime = Date.now();
     setRunning(true);
     triggerSave();
   }, [nodeData, triggerSave]);
@@ -76,10 +84,7 @@ export function StopwatchNode({ data, selected }: NodeProps) {
     triggerSave();
   }, [nodeData, triggerSave]);
 
-  // Seconds within current minute (0–59), used for the ring
-  const secsInMinute = Math.floor((elapsed / 1000) % 60);
-  const ringProgress = secsInMinute / 60;
-  const CIRCUMFERENCE = 251.2;
+  const { main, cs } = formatTime(elapsed);
 
   return (
     <>
@@ -92,7 +97,7 @@ export function StopwatchNode({ data, selected }: NodeProps) {
           background: "#18181b",
           border: `1.5px solid ${selected ? "#6366f1" : "#27272a"}`,
           borderRadius: 16,
-          padding: "18px 22px",
+          padding: "18px 24px",
           textAlign: "center",
           boxShadow: "0 4px 24px #00000066",
           minWidth: 180,
@@ -103,39 +108,38 @@ export function StopwatchNode({ data, selected }: NodeProps) {
           value={label}
           onChange={(e) => { setLabel(e.target.value); nodeData.label = e.target.value; }}
           placeholder="Stopwatch label..."
-          className="w-full bg-transparent text-xs text-center outline-none placeholder-zinc-700 mb-3"
+          className="w-full bg-transparent text-xs text-center outline-none placeholder-zinc-700 mb-4"
           style={{ color: "#71717a" }}
         />
 
-        {/* Ring + time display */}
-        <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width={96} height={96} style={{ transform: "rotate(-90deg)" }}>
-            <circle cx={48} cy={48} r={40} fill="none" stroke="#27272a" strokeWidth={6} />
-            <circle
-              cx={48} cy={48} r={40} fill="none"
-              stroke={running ? "#22d3ee" : "#3f3f46"}
-              strokeWidth={6}
-              strokeDasharray={CIRCUMFERENCE}
-              strokeDashoffset={CIRCUMFERENCE * (1 - ringProgress)}
-              strokeLinecap="round"
-              style={{ transition: running ? "stroke-dashoffset 0.1s linear, stroke 0.3s" : "stroke 0.3s" }}
-            />
-          </svg>
-          <div style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{
-              fontSize: elapsed >= 3600000 ? 16 : 22,
-              fontWeight: 300,
-              color: "#f4f4f5",
-              fontVariantNumeric: "tabular-nums",
-              letterSpacing: "-0.5px",
-            }}>
-              {formatTime(elapsed)}
-            </span>
-          </div>
+        {/* Time display — no ring, just clean digits */}
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2, marginBottom: 16 }}>
+          <span style={{
+            fontSize: 36,
+            fontWeight: 200,
+            color: running ? "#22d3ee" : "#f4f4f5",
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "-1px",
+            lineHeight: 1,
+            transition: "color 0.3s",
+          }}>
+            {main}
+          </span>
+          <span style={{
+            fontSize: 20,
+            fontWeight: 200,
+            color: running ? "#22d3ee99" : "#71717a",
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "-0.5px",
+            lineHeight: 1,
+            transition: "color 0.3s",
+          }}>
+            .{cs}
+          </span>
         </div>
 
         {/* Controls */}
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 12 }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button
             onClick={running ? pause : start}
             style={{
